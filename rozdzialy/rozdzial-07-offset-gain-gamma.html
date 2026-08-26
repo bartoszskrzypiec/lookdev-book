@@ -12,16 +12,111 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 07/24</span><span>CZĘŚĆ · III</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>OFFSET · V + c</span><span>GAIN · V × c</span><span>GAMMA · V^(1/c)</span><span>WSPÓLNE · c = 1 to identyczność</span>
   </div>
 
   <div class="eyebrow">Rozdział 7 / Matematyka gradingu</div>
   <h1>Offset, gain, gamma</h1>
   <p class="subtitle">Trzy suwaki w każdym node'zie do korekcji koloru, które wyglądają podobnie, a robią matematycznie coś zupełnie innego z cieniami, światłami i środkiem tonalnym.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li><span class="term-amber">Offset</span> dodaje tę samą stałą do każdej wartości — najbardziej widoczny w cieniach, bo mała baza plus stała zmiana daje dużą zmianę <em>względną</em>; potrafi wypchnąć jasne wartości poza zakres.</li>
+      <li><span class="term-cyan">Gain</span> mnoży każdą wartość przez tę samą stałą — czerń (0) zawsze zostaje czernią, a zmiana jest największa w wartościach bezwzględnych tam, gdzie sygnał już jest duży.</li>
+      <li><span class="term-violet">Gamma</span> podnosi wartość do potęgi — jako jedyny z trzech operatorów zostawia oba krańce (0 i 1) dokładnie w miejscu i przesuwa wyłącznie to, co jest między nimi.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <p>Każdy z trzech suwaków w node'zie korekcji koloru — offset, gain, gamma — na pierwszy rzut oka robi to samo: „rozjaśnia" albo „przyciemnia" obraz. Różnica ujawnia się dopiero, kiedy spojrzysz, <em>które</em> wartości zmieniają się najbardziej. Te trzy operatory nie są zamiennikami tego samego efektu — to trzy różne narzędzia, każde do innego zadania, i mylenie ich (np. próba rozjaśnienia cieni gainem zamiast offsetem) to jeden z najczęstszych błędów, jakie popełnia ktoś, kto grading dopiero zaczyna.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Offset</div>
+    <h2>Offset — ta sama stała zmiana wszędzie</h2>
+    <div class="formula">V' = V + offset<span class="sub">V — wartość wejściowa; offset — stała, dodawana identycznie do każdego piksela niezależnie od jego jasności; V' — wartość wyjściowa</span></div>
+    <p>Offset dodaje (lub odejmuje, przy wartości ujemnej) tę samą, stałą liczbę do każdej wartości w obrazie. Ponieważ to zmiana <em>absolutna</em>, nie proporcjonalna, jej efekt zależy od tego, jak mała była wartość bazowa: dodanie 0,1 do czerni (0,0 → 0,1) to nieskończona zmiana względna — z niczego robi się coś — podczas gdy dodanie 0,1 do jasnej wartości (0,9 → 1,0) to zmiana relatywnie niewielka. Właśnie dlatego offset najsilniej „unosi" cienie: klasyczny efekt „mgły" albo „wypłowiałej czerni" w gradingu to niemal zawsze dodatni offset. Ma też wadę, o której łatwo zapomnieć: przy dodatnim offsecie jasne wartości mogą przekroczyć 1,0 — w przestrzeni display-referred oznacza to twarde obcięcie (clipping) najjaśniejszych partii, chyba że pracujesz w nieograniczonym scene-linear HDR (Rozdział 9 wraca do tego rozróżnienia).</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Gain</div>
+    <h2>Gain — skalowanie proporcjonalne od zera</h2>
+    <div class="formula">V' = V × gain<span class="sub">gain — mnożnik; przy gain = 1 obraz się nie zmienia, przy gain &gt; 1 rozjaśnia, przy gain &lt; 1 przyciemnia</span></div>
+    <p>Gain mnoży każdą wartość przez tę samą stałą. W przeciwieństwie do offsetu, czerń zostaje czernią niezależnie od wartości gaina: 0 × dowolna liczba = 0. To właśnie sprawia, że gain to matematycznie ten sam operator co ekspozycja mierzona w stopach (Rozdział 9 pokazuje, że gain = 2^stopnie) — mnożenie, nie dodawanie, jest dokładnie tym mechanizmem, jaki opisuje liniowość radiometryczna z Rozdziału 3. Zmiana bezwzględna rośnie wraz z jasnością bazową: przy gain = 1,3 wartość 0,8 zmienia się o 0,24, a wartość 0,2 zmienia się tylko o 0,06 — gain „rozciąga" różnice w jasnych partiach mocniej niż w cieniach, odwrotnie niż offset.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Gamma</div>
+    <h2>Gamma — jedyny operator, który nie rusza krańców</h2>
+    <div class="formula">V' = V^(1/γ)<span class="sub">γ (gamma) — parametr; γ &gt; 1 rozjaśnia środek tonalny (bo wykładnik 1/γ &lt; 1), γ &lt; 1 przyciemnia; przy γ = 1 obraz się nie zmienia</span></div>
+    <p>To dokładnie ta sama funkcja potęgowa co krzywa kodująca z Rozdziału 5 — różnica jest wyłącznie w intencji. Tam gamma kodowała jasność percepcyjnie jako stały, ustandaryzowany krok w łańcuchu obrazu; tutaj jest świadomym narzędziem artystycznym do przesuwania środka tonalnego. Kluczowa własność: 0^(1/γ) = 0 i 1^(1/γ) = 1 dla dowolnego γ &gt; 0 — gamma jako jedyny z trzech operatorów <em>zawsze</em> zostawia pełną czerń i pełną biel dokładnie tam, gdzie były, i przekształca wyłącznie wartości pomiędzy nimi. To dlatego gamma jest narzędziem z wyboru, kiedy chcesz zmienić kontrast czy jasność środkowych tonów (skóra, szarości) bez ryzykowania, że najciemniejsze cienie przestaną być czarne albo najjaśniejsze highlighty przestaną być białe.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Policzone</div>
+    <h2>Te same trzy operatory, na tych samych pięciu wartościach</h2>
+    <div class="worked">
+      <div class="wlabel">Policzone: offset +0,10, gain ×1,30, gamma γ=1,50 (wykładnik 1/1,5 ≈ 0,667), na V = 0,00 / 0,25 / 0,50 / 0,75 / 1,00</div>
+      <div class="step"><span class="k">Wejście</span> — <span class="v">0,00&nbsp;&nbsp;0,25&nbsp;&nbsp;0,50&nbsp;&nbsp;0,75&nbsp;&nbsp;1,00</span></div>
+      <div class="step"><span class="k">Offset +0,10</span> — <span class="v">0,10&nbsp;&nbsp;0,35&nbsp;&nbsp;0,60&nbsp;&nbsp;0,85&nbsp;&nbsp;1,00*</span> (*1,10 obcięte do 1,00)</div>
+      <div class="step"><span class="k">Gain ×1,30</span> — <span class="v">0,00&nbsp;&nbsp;0,325&nbsp;&nbsp;0,650&nbsp;&nbsp;0,975&nbsp;&nbsp;1,00*</span> (*1,30 obcięte do 1,00)</div>
+      <div class="step"><span class="k">Gamma ^0,667</span> — <span class="v">0,000&nbsp;&nbsp;0,397&nbsp;&nbsp;0,630&nbsp;&nbsp;0,825&nbsp;&nbsp;1,000</span></div>
+      <div class="result">Offset: przesuwa czerń najmocniej (0,00 → 0,10). Gain: nie rusza czerni, przesuwa biel najmocniej. Gamma: nie rusza żadnego z krańców, przesuwa tylko środek.</div>
+      <div class="check">Sprawdzenie: przy V=1,00 offset i gain obcinają wynik (odpowiednio 1,10 i 1,30 nie mieszczą się w zakresie 0–1), podczas gdy gamma z definicji nigdy tego nie robi — 1,00^cokolwiek zawsze daje dokładnie 1,00.</div>
+    </div>
+
+    <div class="diagram-frame">
+      <div class="diagram-hud"><span>Offset.gain.gamma</span><span>te same parametry co wyżej</span></div>
+      <svg viewBox="0 0 640 280" xmlns="http://www.w3.org/2000/svg">
+        <line x1="60" y1="230" x2="580" y2="230" stroke="#8b909b" stroke-width="1.5"/>
+        <line x1="60" y1="230" x2="60" y2="30" stroke="#8b909b" stroke-width="1.5"/>
+        <text x="60" y="248" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#8b909b">0</text>
+        <text x="580" y="248" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#8b909b">1 (wejście)</text>
+        <text x="46" y="34" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="#8b909b">1</text>
+
+        <!-- identity -->
+        <line x1="60" y1="230" x2="580" y2="30" stroke="#8b909b" stroke-width="1.4" stroke-dasharray="3 3"/>
+        <!-- offset: parallel shift up, clipped at 1.0 -->
+        <path d="M 60,178 L 528,30 L 580,30" fill="none" stroke="#e8a33d" stroke-width="2.2"/>
+        <!-- gain: steeper line through 0, clipped -->
+        <path d="M 60,230 L 446,30 L 580,30" fill="none" stroke="#4fc3c0" stroke-width="2.2"/>
+        <!-- gamma: curve pinned at both ends -->
+        <path d="M 60,230 L 138,146 L 216,113 L 294,91 L 372,73 L 450,58 L 528,43 L 580,30" fill="none" stroke="#9c82d8" stroke-width="2.2"/>
+
+        <g font-family="IBM Plex Mono" font-size="11">
+          <circle cx="420" cy="200" r="5" fill="#e8a33d"/><text x="432" y="204" fill="#e8a33d">offset — rusza czerń</text>
+          <circle cx="420" cy="220" r="5" fill="#4fc3c0"/><text x="432" y="224" fill="#4fc3c0">gain — czerń stoi w miejscu</text>
+          <circle cx="220" cy="255" r="5" fill="#9c82d8"/><text x="232" y="259" fill="#9c82d8">gamma — oba krańce stoją w miejscu</text>
+        </g>
+      </svg>
+      <div class="diagram-caption">Linia przerywana to identyczność (brak zmiany). Offset przesuwa całą linię w górę, gain ją obraca stromiej od zera, gamma wygina środek, nie ruszając krańców.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: W praktyce</div>
+    <h2>Gdzie te operatory żyją w Arnoldzie i RenderManie</h2>
+    <p>Node'y korekcji koloru w obu rendererach — <code>aiColorCorrect</code> w Arnoldzie, <code>PxrColorCorrect</code> w RenderManie — wystawiają dokładnie tę trójkę jako osobne parametry, obok kontrastu i saturacji z Rozdziałów 9–10. Warto wiedzieć, że narzędzia kolorystów (np. trzy-kołowy „Lift / Gamma / Gain" w DaVinci Resolve) czasem implementują „lift" jako offset <em>tłumiony</em> w stronę bieli, a nie czysty, stały offset opisany wyżej — dokładny kształt tego tłumienia różni się między narzędziami i nie jest jednolicie ustandaryzowany. Ustandaryzowana, w pełni jawna wersja tej samej trójki operatorów, w ściśle określonej kolejności, istnieje jednak — to właśnie ASC CDL, temat następnego rozdziału.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Offset</dt>
+      <dd>Operator addytywny: V' = V + stała. Najsilniej zmienia cienie, może wypychać jasne wartości poza zakres.</dd>
+      <dt>Gain</dt>
+      <dd>Operator multiplikatywny: V' = V × stała. Zachowuje czerń, najsilniej zmienia jasne wartości.</dd>
+      <dt>Gamma (jako operator gradingu)</dt>
+      <dd>Operator potęgowy: V' = V^(1/γ). Jedyny z trzech, który nie zmienia ani czerni, ani bieli.</dd>
+      <dt>Clipping</dt>
+      <dd>Twarde obcięcie wartości do granicy zakresu (np. 1,0) — utrata informacji o tym, jak bardzo wartość ją przekroczyła.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Trzy osobne operatory to dopiero połowa historii — bez ustalonej kolejności i bez jednego wspólnego formatu zapisu, dwóch kolorystów opisujących „ten sam" grading offsetem, gainem i gammą wcale nie muszą uzyskać identycznego wyniku. Rozdział 8 pokazuje ASC CDL: standard, który zamyka dokładnie tę trójkę w jeden, jednoznaczny wzór wymieniany między studiami na całym świecie.</p>
   </div>
 
 <div class="site-nav chapter-nav">

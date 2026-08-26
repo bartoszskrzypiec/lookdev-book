@@ -12,16 +12,80 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 08/24</span><span>CZĘŚĆ · III</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>SOP · slope, offset, power, per kanał</span><span>SAT · luma Rec.709</span><span>WYMIANA · plik .cdl / .cc</span>
   </div>
 
   <div class="eyebrow">Rozdział 8 / Matematyka gradingu</div>
   <h1>ASC CDL: slope, offset, power</h1>
   <p class="subtitle">Slope, offset, power — jeden wzór, który koordynator koloru wysyła do dziesięciu studiów na świecie i wie, że wygląda tak samo na każdym z nich.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li><span class="term-amber">ASC CDL</span> (American Society of Cinematographers Color Decision List) to standard zapisu dokładnie tej samej trójki operatorów z Rozdziału 7 — slope (= gain), offset, power (= 1/gamma) — w jednym, w pełni jawnym wzorze, osobno dla każdego kanału R, G, B.</li>
+      <li>Do SOP (Slope/Offset/Power) dochodzi ustandaryzowany krok saturacji, liczony względem luma Rec.709 — pełny mechanizm saturacji to temat Rozdziału 10, tu wystarczy jego dokładny wzór.</li>
+      <li>Ponieważ wzór jest w pełni jawny i publiczny, plik .cdl czy .cc wysłany między dwoma dowolnymi studiami — i dwoma dowolnymi programami: Resolve, Baselight, Nuke, Arnold, RenderMan — daje matematycznie identyczny wynik, nie tylko „podobny".</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Problem wymiany</div>
+    <h2>Dlaczego „ten sam offset, gain i gamma" nie wystarczy</h2>
+    <p>Wyobraź sobie DIT-a (Digital Imaging Technician) na planie, który podczas dailies ustala wstępny look sceny — trochę cieplejsze cienie, delikatnie podniesiony kontrast. Ten look musi dotrzeć niezmieniony do wielu odbiorców: montażysty oglądającego podgląd, kolorysty robiącego finalny grading, i studiów VFX, które osadzą swój render w tym samym looku. Gdyby każdy z tych odbiorców odtwarzał „ten sam offset, gain i gamma" we własnym narzędziu, subtelne różnice w implementacji — kolejność operacji, sposób zaokrąglania, definicja „gammy" akurat w tym programie — dałyby zauważalnie różne obrazy. <span class="term-amber">ASC CDL</span>, opracowany i utrzymywany przez American Society of Cinematographers, rozwiązuje to inaczej niż każde pojedyncze narzędzie: definiuje wzór na tyle precyzyjnie i publicznie, że każda poprawna implementacja — niezależnie od producenta — musi dać identyczny wynik dla identycznych parametrów.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: SOP</div>
+    <h2>Slope, Offset, Power — ta sama trójka, per kanał</h2>
+    <p>SOP stosuje dokładnie operatory z Rozdziału 7 w ustalonej kolejności — najpierw slope (mnożenie), potem offset (dodawanie), na końcu power (potęgowanie) — ale osobno dla każdego z trzech kanałów:</p>
+    <div class="formula">out_c = (in_c · slope_c + offset_c)^power_c, &nbsp; dla c ∈ {R, G, B}<span class="sub">in_c — wartość wejściowa kanału c; slope_c — mnożnik tego kanału (odpowiednik gainu); offset_c — stała dodawana do tego kanału; power_c — wykładnik tego kanału (odpowiednik 1/gamma); wynik zwykle ograniczany (clamp) do zakresu wyświetlanego</span></div>
+    <p>Dziewięć liczb (po trzy na kanał) zamiast trzech z Rozdziału 7 to nie nadmiarowa komplikacja — to właśnie ta różnica pozwala CDL opisać nie tylko zmianę jasności czy kontrastu, ale też przesunięcie koloru: nieco inny slope na czerwonym niż na niebieskim kanale nachyla całą tonalną skalę w stronę ciepła albo chłodu, bez osobnego, nienazwanego kroku „balans bieli" (Rozdział 10 wraca do białego wyważenia jako osobnego, precyzyjniejszego narzędzia).</p>
+
+    <div class="worked">
+      <div class="wlabel">Policzone: neutralna szarość przez SOP z lekko innymi wartościami per kanał</div>
+      <div class="step"><span class="k">Wejście</span> — <span class="v">(0,500; 0,500; 0,500)</span> (neutralna szarość)</div>
+      <div class="step"><span class="k">slope</span> = (1,05; 1,00; 0,95) &nbsp; <span class="k">offset</span> = (0,02; 0,00; −0,01) &nbsp; <span class="k">power</span> = (0,95; 1,00; 1,05)</div>
+      <div class="step"><span class="k">R'</span> = (0,500 · 1,05 + 0,02)^0,95 = 0,545^0,95 ≈ <span class="v">0,562</span></div>
+      <div class="step"><span class="k">G'</span> = (0,500 · 1,00 + 0,00)^1,00 = 0,500^1,00 = <span class="v">0,500</span></div>
+      <div class="step"><span class="k">B'</span> = (0,500 · 0,95 − 0,01)^1,05 = 0,465^1,05 ≈ <span class="v">0,448</span></div>
+      <div class="result">(0,500; 0,500; 0,500) → (0,562; 0,500; 0,448) — idealnie neutralna szarość staje się widocznie cieplejsza, mimo że żaden pojedynczy parametr „koloru" nie został ustawiony wprost</div>
+      <div class="check">Sprawdzenie kierunku: R wzrósł, B spadł — to definicja przesunięcia w stronę ciepła (więcej czerwieni, mniej błękitu) względem tego samego neutralnego wejścia.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Sat</div>
+    <h2>Saturacja jako ostatni, osobny krok</h2>
+    <p>Po SOP standard dodaje jeden krok saturacji, wspólny dla wszystkich trzech kanałów naraz, liczony względem <span class="term-cyan">luma</span> — ważonej sumy kanałów przybliżającej postrzeganą jasność (współczynniki Rec.709, te same, do których Rozdział 10 wraca przy pełnym mechanizmie macierzy saturacji):</p>
+    <div class="formula">luma = 0,2126 · R + 0,7152 · G + 0,0722 · B<br>out_c = clamp( luma + sat · (in_c − luma) )<span class="sub">sat — parametr saturacji: sat=1 nie zmienia niczego, sat=0 daje pełną szarość (każdy kanał staje się równy luma), sat&gt;1 wzmacnia różnice między kanałami ponad oryginał; clamp ogranicza wynik do poprawnego zakresu</span></div>
+    <p>Zwróć uwagę na strukturę tego wzoru: dla każdego kanału liczysz, o ile różni się on od luma (in_c − luma), skalujesz tę różnicę parametrem sat, i dodajesz z powrotem do luma. Przy sat=0 różnica znika całkowicie i każdy kanał ląduje dokładnie na luma — czyli w odcieniu szarości o tej samej jasności co oryginalny kolor. To dokładnie ten sam mechanizm, którym posługuje się każdy suwak „Saturation" w każdym programie do gradingu; Rozdział 10 pokazuje go w pełnej ogólności, łącznie z wersją zapisaną jako macierz 3×3.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: W praktyce</div>
+    <h2>Plik .cdl i dwa renderery</h2>
+    <p>SOP i Sat razem zapisuje się jako plik .cdl, .cc albo .ccc (warianty XML tego samego standardu) — metadana towarzysząca materiałowi od planu, przez montaż, po finishing, czytelna w Resolve, Baselight, Nuke i, co najważniejsze dla tej książki, bezpośrednio w node'ach korekcji koloru obu rendererów: <code>aiColorCorrect</code> w Arnoldzie i <code>PxrColorCorrect</code> w RenderManie mają tryb pracy zgodny wprost ze specyfikacją CDL, przyjmujący te same dziewięć liczb SOP plus saturację, bez przepisywania ich ręcznie na osobne parametry offset/gain/gamma z Rozdziału 7. Dzięki temu look zatwierdzony na planie i zapisany jako CDL trafia do lookdevu (Rozdział 1) i do lightingu jako dokładnie ten sam, matematycznie identyczny punkt startowy — Dodatek W pokazuje, jak taki plik wpasowuje się w wersjonowanie looku w całym pipeline'ie.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>ASC CDL</dt>
+      <dd>Publiczny standard American Society of Cinematographers na zapis korekcji koloru jako SOP (slope/offset/power per kanał) plus saturacja.</dd>
+      <dt>SOP</dt>
+      <dd>Slope, Offset, Power — trójka operatorów z Rozdziału 7, zastosowana osobno do każdego kanału RGB.</dd>
+      <dt>Luma</dt>
+      <dd>Ważona suma kanałów RGB przybliżająca postrzeganą jasność koloru; tu liczona współczynnikami Rec.709 (0,2126 / 0,7152 / 0,0722).</dd>
+      <dt>DIT (Digital Imaging Technician)</dt>
+      <dd>Osoba na planie odpowiedzialna m.in. za wstępny look materiału i jego prawidłowe przekazanie dalej w pipeline.</dd>
+      <dt>Plik .cdl / .cc / .ccc</dt>
+      <dd>Formaty XML zapisujące parametry ASC CDL jako metadane, wymieniane między narzędziami i studiami.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>CDL zakłada, że wiesz, o ile chcesz zmienić slope czy offset — ale nie mówi, jak myśleć o tej zmianie w jednostkach, którymi faktycznie posługuje się kolorystyka filmowa. Rozdział 9 wprowadza stopy, kontrast liczony względem punktu odniesienia i printer lights: język, w którym te same operatory z tego i poprzedniego rozdziału nabierają konkretnego, fotograficznego znaczenia.</p>
   </div>
 
 <div class="site-nav chapter-nav">

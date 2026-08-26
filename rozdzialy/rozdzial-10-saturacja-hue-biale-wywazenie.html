@@ -12,16 +12,92 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 10/24</span><span>CZĘŚĆ · III</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>SAT · macierz 3×3, wiersze sumują się do 1</span><span>HUE · obrót w płaszczyźnie chrominancji</span><span>WB · korekta per kanał</span>
   </div>
 
   <div class="eyebrow">Rozdział 10 / Matematyka gradingu</div>
   <h1>Saturacja, hue, białe wyważenie</h1>
   <p class="subtitle">Podkręcenie saturacji psuje skórę, zanim zdążysz to zauważyć na wykresie wektorowym — bo za tym jednym suwakiem stoi macierz, która traktuje każdy kolor inaczej.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li><span class="term-amber">Saturacja</span> (wzór poznany w Rozdziale 8) to w pełni zapisywalna macierz 3×3 zbudowana z luma — przy sat=0 każdy kolor ląduje na tej samej szarości, przy sat=1 nic się nie zmienia, przy sat&gt;1 różnice między kanałami rosną ponad oryginał.</li>
+      <li><span class="term-cyan">Obrót barwy</span> (hue rotation) to inna operacja niż saturacja — nie zmienia „ile koloru", tylko „który kolor", obracając wektor chrominancji o kąt, przy zachowanej luma.</li>
+      <li><span class="term-violet">Białe wyważenie</span> to nie osobny, magiczny suwak — w najprostszej postaci to korekta per kanał, która sprawia, że wybrany neutralny punkt (np. karta szara) staje się dokładnie (1,1,1); pełny wywód przez adaptację chromatyczną (von Kries/Bradford) jest w Dodatku E.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Saturacja jako macierz</div>
+    <h2>Ten sam wzór z Rozdziału 8, rozpisany jako macierz</h2>
+    <p>Rozdział 8 wprowadził wzór na saturację przy okazji ASC CDL: <code>out_c = luma + sat · (in_c − luma)</code>. Podstawiając definicję luma (współczynniki Rec.709: 0,2126 / 0,7152 / 0,0722) i grupując wyrazy przy R, G, B, ten sam wzór zapisuje się jako jedna macierz 3×3, identyczna dla wszystkich trzech kanałów wyjściowych, zależna tylko od jednego parametru sat:</p>
+    <div class="formula">M(sat) =<br>
+[ sat+(1−sat)·0,2126&nbsp;&nbsp; (1−sat)·0,7152&nbsp;&nbsp; (1−sat)·0,0722 ]<br>
+[ (1−sat)·0,2126&nbsp;&nbsp; sat+(1−sat)·0,7152&nbsp;&nbsp; (1−sat)·0,0722 ]<br>
+[ (1−sat)·0,2126&nbsp;&nbsp; (1−sat)·0,7152&nbsp;&nbsp; sat+(1−sat)·0,0722 ]
+<span class="sub">Każdy wiersz sumuje się do dokładnie 1,0, niezależnie od sat — z tego samego powodu co macierz zmiany przestrzeni barw w Rozdziale 4: żeby biel (1,1,1) zawsze zostawała bielą, niezależnie od stopnia saturacji</span></div>
+    <div class="worked">
+      <div class="wlabel">Policzone: macierz saturacji dla sat = 0,5</div>
+      <div class="step"><span class="k">Wiersz R</span>: [0,6063; 0,3576; 0,0361]</div>
+      <div class="step"><span class="k">Wiersz G</span>: [0,1063; 0,8576; 0,0361]</div>
+      <div class="step"><span class="k">Wiersz B</span>: [0,1063; 0,3576; 0,5361]</div>
+      <div class="result">Suma każdego wiersza = 1,0000 — sprawdzenie poprawności macierzy, dokładnie jak przy macierzy zmiany przestrzeni barw w Rozdziale 4</div>
+      <div class="check">Przy sat=0 wszystkie trzy wiersze stają się identyczne: [0,2126; 0,7152; 0,0722] — czyli każdy kanał wyjściowy równa się luma, dokładnie definicja pełnego odbarwienia. Przy sat=1 macierz redukuje się do macierzy jednostkowej — brak zmiany.</div>
+    </div>
+    <p>To właśnie dlatego przesadzona saturacja najpierw psuje skórę: karnacja ma stosunkowo bliskie sobie wartości R, G i B (mała odległość od luma w porównaniu np. z nasyconą czerwienią ubrania), więc każdy dodatkowy procent sat wyolbrzymia tę niewielką różnicę nieproporcjonalnie mocno względem tego, jak subtelna zmiana jest jeszcze wiarygodna fizjologicznie — granica, za którą skóra zaczyna wyglądać poparzona słońcem albo chorobliwie czerwona, jest bliżej niż podpowiada intuicja patrząca tylko na jedną liczbę „Saturation".</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Hue rotation</div>
+    <h2>Obrót barwy — zmienia który kolor, nie ile koloru</h2>
+    <p>Saturacja skaluje odległość koloru od luma, ale nie zmienia <em>kierunku</em> tej odległości — czerwony pozostaje czerwony, tylko mniej lub bardziej intensywny. <span class="term-cyan">Obrót barwy</span> robi coś przeciwnego: zmienia kierunek, zachowując odległość (i luma) bez zmian. Najwygodniej myśleć o tym w przestrzeni, która jawnie oddziela luma od <span class="term-violet">chrominancji</span> — na przykład YCbCr, gdzie Y to luma (ten sam wzór co wyżej), a Cb i Cr to dwuwymiarowa płaszczyzna koloru, niezależna od jasności. Obrót barwy o kąt θ to zwykły obrót 2D dokładnie tej płaszczyzny:</p>
+    <div class="formula">Cb' = Cb·cos(θ) − Cr·sin(θ)<br>Cr' = Cb·sin(θ) + Cr·cos(θ)<span class="sub">θ — kąt obrotu barwy; Y (luma) nie zmienia się w ogóle — to właśnie sprawia, że hue rotation, poprawnie zaimplementowany, nie zmienia postrzeganej jasności obrazu, tylko jego odcień</span></div>
+    <p>Część narzędzi (klasyczne „Hue" w edytorach zdjęć w rodzaju Photoshopa) implementuje ten sam efekt inaczej — jako przesunięcie kąta H w przestrzeni HSV/HSL, gdzie hue to wprost kąt na kole barw, a nie obrót w płaszczyźnie chrominancji YCbCr. Obie implementacje dążą do tego samego efektu wizualnego, ale nie są matematycznie identyczne — kolejny przykład (po „lift" z Rozdziału 7) tego, że ta sama nazwa parametru w dwóch programach nie gwarantuje identycznego wzoru pod spodem.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Białe wyważenie</div>
+    <h2>Biel jako punkt odniesienia, nie jako założenie</h2>
+    <p>Materiał nakręcony pod ciepłym światłem żarowym albo pod chłodnym niebem bez chmur ma przesunięty balans kolorów, zanim ktokolwiek dotknie gradingu — to, co powinno być neutralnie białe (karta szara, biała koszula), rejestruje się z domieszką pomarańczu albo błękitu. Najprostsza korekta — <span class="term-amber">białe wyważenie</span> — mnoży każdy kanał osobno tak, żeby zmierzony neutralny punkt stał się dokładnie (1; 1; 1):</p>
+    <div class="formula">gain_R = 1 / R_zmierzone &nbsp;&nbsp; gain_G = 1 / G_zmierzone &nbsp;&nbsp; gain_B = 1 / B_zmierzone<span class="sub">R/G/B_zmierzone — wartości, jakie zarejestrował sensor dla punktu, który <em>powinien</em> być neutralnie biały; po pomnożeniu przez te gainy ten punkt rzeczywiście staje się (1,1,1)</span></div>
+    <div class="worked">
+      <div class="wlabel">Policzone: korekta ciepłego oświetlenia na podstawie karty szarej</div>
+      <div class="step"><span class="k">Karta szara, zmierzona</span> = <span class="v">(1,15; 1,00; 0,80)</span> (wyraźna domieszka ciepła — nadmiar R, niedobór B)</div>
+      <div class="step"><span class="k">gain_R</span> = 1/1,15 ≈ <span class="v">0,870</span> &nbsp; <span class="k">gain_G</span> = 1/1,00 = <span class="v">1,000</span> &nbsp; <span class="k">gain_B</span> = 1/0,80 = <span class="v">1,250</span></div>
+      <div class="step"><span class="k">Próbka skóry przed korektą</span> = <span class="v">(0,850; 0,650; 0,550)</span></div>
+      <div class="step"><span class="k">Po korekcie</span>: (0,850·0,870; 0,650·1,000; 0,550·1,250) ≈ <span class="v">(0,740; 0,650; 0,688)</span></div>
+      <div class="result">Skóra traci część ciepłego nalotu — kanał B wzrósł względem R wyraźnie mocniej niż G, dokładnie odwracając przesunięcie zmierzone na karcie szarej</div>
+      <div class="check">Sprawdzenie: podstawienie zmierzonej karty szarej (1,15; 1,00; 0,80) do tych samych trzech gainów daje dokładnie (1,000; 1,000; 1,000) — punkt odniesienia rzeczywiście staje się neutralny.</div>
+    </div>
+    <p>Ta prosta, diagonalna korekta (osobny mnożnik na każdy kanał, bez mieszania między nimi) działa dobrze przy niewielkich przesunięciach, ale to w istocie uproszczona, przybliżona wersja czegoś bardziej ogólnego: <span class="term-violet">adaptacji chromatycznej</span>. Przy dużych przesunięciach temperatury barwowej (bardzo ciepłe światło świecy kontra bardzo chłodne zachmurzone niebo) sama korekta diagonalna w RGB zaczyna dawać zauważalnie inne rezultaty niż to, jak faktycznie adaptuje się ludzkie oko — stąd transformacje von Kriesa i Bradforda, które tę samą ideę wykonują w przestrzeni lepiej dopasowanej do fizjologii widzenia (tej samej, której użyto już przy okazji różnicy D65/D60 w Rozdziale 4). Pełny wywód — łącznie z tym, dlaczego prosta diagonalna korekta czasem wystarcza, a czasem nie — jest w Dodatku E.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: W praktyce</div>
+    <h2>Trzy operatory, jeden node</h2>
+    <p>Saturacja i obrót barwy niemal zawsze siedzą w tym samym node'zie co offset/gain/gamma z Rozdziału 7 — <code>aiColorCorrect</code> w Arnoldzie wystawia wprost parametry <code>saturation</code> i <code>hue_shift</code> obok exposure i kontrastu z Rozdziału 9; <code>PxrColorCorrect</code> w RenderManie ma bezpośrednie odpowiedniki. Białe wyważenie bywa potraktowane osobno, czasem jako parametr „temperature/tint" bliższy językowi fotografii niż surowym gainom kanałów — Dodatek E pokazuje, jak taki parametr temperaturowy przekłada się z powrotem na dokładnie te same gainy albo macierze, które poznałeś w tym rozdziale.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Macierz saturacji</dt>
+      <dd>Macierz 3×3 zbudowana z luma i parametru sat; wiersze zawsze sumują się do 1, żeby zachować biel.</dd>
+      <dt>Chrominancja</dt>
+      <dd>Informacja o kolorze niezależna od jasności — w YCbCr para składowych Cb, Cr.</dd>
+      <dt>Hue rotation (obrót barwy)</dt>
+      <dd>Obrót wektora chrominancji o zadany kąt przy zachowanej luma i odległości od luma (saturacji).</dd>
+      <dt>Białe wyważenie</dt>
+      <dd>Korekta koloru sprawiająca, że wybrany neutralny punkt staje się (1,1,1); w prostej wersji — osobny gain na kanał.</dd>
+      <dt>Adaptacja chromatyczna</dt>
+      <dd>Ogólniejsza, fizjologicznie dokładniejsza wersja białego wyważenia — pełny wywód w Dodatku E.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Część III dała Ci pełny zestaw operatorów gradingu — offset, gain, gamma, CDL, ekspozycja, kontrast, saturacja, hue, białe wyważenie. Wszystkie zakładały jedno: że liczby, na których operujesz, są już poprawnie zdekodowane do scene-linear. Część IV wraca do tego założenia i sprawdza je od podszewki — zaczynając od pytania, które teksturę jest kolorem, a która czystymi danymi, i dlaczego pomylenie tych dwóch to najczęstszy błąd, jaki zobaczysz w cudzej scenie.</p>
   </div>
 
 <div class="site-nav chapter-nav">

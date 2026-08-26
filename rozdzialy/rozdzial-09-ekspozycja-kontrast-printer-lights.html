@@ -12,16 +12,94 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 09/24</span><span>CZĘŚĆ · III</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>STOP · ×2</span><span>PUNKT DRUKARSKI · 1/12 stopa</span><span>KONTRAST · zależny od pivotu</span>
   </div>
 
   <div class="eyebrow">Rozdział 9 / Matematyka gradingu</div>
   <h1>Ekspozycja, kontrast, printer lights</h1>
-  <p class="subtitle">Stop to nie jednostka procentowa, tylko potęga dwójki — i dokładnie dlatego kolorysta mówi „plus pół stopa”, a nie „plus dwadzieścia procent”.</p>
+  <p class="subtitle">Stop to nie jednostka procentowa, tylko potęga dwójki — i dokładnie dlatego kolorysta mówi „plus pół stopa", a nie „plus dwadzieścia procent".</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li><span class="term-amber">Stop</span> to jednostka multiplikatywna, nie addytywna: +1 stop = ×2 jasności, +2 stopy = ×4 — nie ×3. To dokładnie ten sam gain z Rozdziału 7, tylko sparametryzowany wykładniczo: gain = 2^stopy.</li>
+      <li><span class="term-cyan">Printer point</span> (punkt drukarski), jednostka odziedziczona po laboratoriach filmowych, to 1/12 stopa (0,025 jednostki log₁₀ ekspozycji) — dwanaście punktów zmiany światła drukarki dokładnie podwaja albo połowi ekspozycję odbitki.</li>
+      <li><span class="term-violet">Kontrast</span> to operator gain zastosowany nie względem zera, tylko względem wybranego <span class="term-violet">pivotu</span> (punktu odniesienia) — ten sam współczynnik kontrastu daje inny wynik przy pivocie 0,5 niż przy pivocie 18% szarości.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Stop</div>
+    <h2>Dlaczego stopy się mnożą, a nie dodają</h2>
+    <p><span class="term-amber">Stop</span> to podwojenie (albo połowa) ilości światła — jednostka wywodząca się z fotografii, gdzie każde kolejne ustawienie przysłony czy czasu naświetlania podwajało lub połowiło ekspozycję. Matematycznie stop to logarytm o podstawie 2 z gaina (Rozdział 7):</p>
+    <div class="formula">gain = 2^stopy &nbsp;&nbsp;⟺&nbsp;&nbsp; stopy = log₂(gain)<span class="sub">stopy — liczba stopów zmiany ekspozycji, może być ułamkowa i ujemna; gain — mnożnik jasności z Rozdziału 7</span></div>
+    <p>Konsekwencja tej definicji: dwie kolejne zmiany ekspozycji <em>dodają się</em> w stopach, ale <em>mnożą się</em> jako gain. „+1 stop", a potem jeszcze „+0,5 stopa" to razem +1,5 stopa — czyli gain 2^1,5 ≈ 2,828, dokładnie tyle samo, co pomnożenie gaina z pierwszej zmiany (2,0) przez gain drugiej (2^0,5 ≈ 1,414): 2,0 × 1,414 ≈ 2,828. To dlatego stopy są wygodniejszą jednostką do rozmawiania o ekspozycji niż surowy mnożnik: dodawanie w głowie jest łatwiejsze niż mnożenie, a stopy pozwalają na dokładnie to, zamieniając mnożenie na dodawanie za sprawą własności logarytmu.</p>
+    <div class="worked">
+      <div class="wlabel">Policzone: kilka wartości stopów jako gain</div>
+      <div class="step"><span class="k">−2 stopy</span> → gain = 2^−2 = <span class="v">0,250</span></div>
+      <div class="step"><span class="k">−1 stop</span> → gain = 2^−1 = <span class="v">0,500</span></div>
+      <div class="step"><span class="k">−0,5 stopa</span> → gain = 2^−0,5 ≈ <span class="v">0,707</span></div>
+      <div class="step"><span class="k">0 stopów</span> → gain = 2^0 = <span class="v">1,000</span></div>
+      <div class="step"><span class="k">+0,5 stopa</span> → gain = 2^0,5 ≈ <span class="v">1,414</span></div>
+      <div class="step"><span class="k">+1 stop</span> → gain = 2^1 = <span class="v">2,000</span></div>
+      <div class="result">Każdy kolejny „pełny stop" dokładnie podwaja poprzedni gain — 0,25 → 0,5 → 1,0 → 2,0 → 4,0.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Printer lights</div>
+    <h2>Punkty drukarskie — stopy sprzed epoki cyfrowej</h2>
+    <p>Zanim istniały suwaki gain i pola liczbowe, laboratoria filmowe regulowały ekspozycję odbitki trzema lampami — czerwoną, zieloną, niebieską — których jasność zmieniano w dyskretnych krokach zwanych <span class="term-amber">punktami drukarskimi</span> (printer points/lights). Jeden punkt to 1/12 stopa, czyli 0,025 jednostki logarytmicznej (log₁₀) ekspozycji; dwanaście punktów zmiany światła drukarki dokładnie podwaja albo połowi ekspozycję odbitki.</p>
+    <div class="formula">gain = 2^(punkty / 12)<span class="sub">punkty — liczba punktów drukarskich zmiany (dodatnia rozjaśnia, ujemna przyciemnia); przy punkty=12 wzór daje gain=2 — pełny stop</span></div>
+    <div class="worked">
+      <div class="wlabel">Policzone: +6 punktów drukarskich jako gain</div>
+      <div class="step"><span class="k">Punkty</span> = <span class="v">+6</span></div>
+      <div class="step"><span class="k">Stopy</span> = 6 / 12 = <span class="v">0,5</span></div>
+      <div class="step"><span class="k">Gain</span> = 2^0,5 ≈ <span class="v">1,414</span></div>
+      <div class="result">+6 punktów drukarskich = pół stopa = gain ≈ 1,414 — dokładnie ta sama liczba, co „+0,5 stopa" z poprzedniej tabeli</div>
+    </div>
+    <p>Ta jednostka przetrwała przejście na cyfrowy grading niemal bez zmian — kolorysta w Resolve czy Baselight nadal potrafi powiedzieć „daj dwa punkty na czerwonym", mimo że żadna fizyczna lampa dawno nie stoi w projektorze. To odziedziczone słownictwo, nie relikwia: parametr „exposure" w node'ach korekcji koloru Arnolda i RenderMana (Rozdział 7, Dodatki K–L) przyjmuje wartość wprost w stopach — cyfrowy, bezpośredni potomek tej samej idei co punkty drukarskie, tylko bez ograniczenia do wielokrotności 1/12.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Kontrast</div>
+    <h2>Kontrast jako gain wokół pivotu</h2>
+    <p>Zwykły gain z Rozdziału 7 zawsze pozostawia czerń (0) w miejscu — mnożenie przez zero nadal daje zero. Do budowy kontrastu potrzebny jest inny punkt zaczepienia: wybrany <span class="term-violet">pivot</span> (punkt odniesienia), względem którego wartości powyżej rosną, a wartości poniżej maleją, gdy współczynnik kontrastu przekracza 1:</p>
+    <div class="formula">V' = pivot + (V − pivot) · kontrast<span class="sub">pivot — wybrany punkt odniesienia (często 0,5 albo 18% szarości); kontrast — współczynnik: &gt;1 zwiększa rozstęp wokół pivotu, &lt;1 spłaszcza; przy kontrast=1 obraz się nie zmienia</span></div>
+    <p>To dokładnie operator gain z Rozdziału 7, tylko przesunięty: odejmujesz pivot (żeby przenieść punkt odniesienia do zera), mnożysz przez współczynnik kontrastu, dodajesz pivot z powrotem. Wybór pivotu nie jest szczegółem technicznym bez znaczenia — zmienia wynik dla każdej wartości poza samym pivotem:</p>
+    <div class="worked">
+      <div class="wlabel">Policzone: ten sam kontrast (×1,3), dwa różne pivoty, V = 0,70</div>
+      <div class="step"><span class="k">Pivot = 0,50</span>: V' = 0,50 + (0,70 − 0,50) · 1,3 = 0,50 + 0,26 = <span class="v">0,760</span></div>
+      <div class="step"><span class="k">Pivot = 0,18</span> (18% szarości): V' = 0,18 + (0,70 − 0,18) · 1,3 = 0,18 + 0,676 = <span class="v">0,856</span></div>
+      <div class="result">Ten sam współczynnik kontrastu, ta sama wartość wejściowa — dwa wyraźnie różne wyniki (0,760 kontra 0,856), zależnie wyłącznie od tego, gdzie ustawiony jest pivot</div>
+      <div class="check">Wniosek: pivot bliżej cieni (0,18) sprawia, że jasne wartości takie jak 0,70 leżą „dalej" od punktu odniesienia, więc ten sam mnożnik kontrastu przesuwa je mocniej.</div>
+    </div>
+    <p>Praktyczna konsekwencja: kontrast liczony wokół 0,5 traktuje cienie i światła symetrycznie względem środka zakresu wyświetlanego; kontrast liczony wokół 18% szarości (klasyczny punkt odniesienia ekspozycji fotograficznej, ten sam, który w Rozdziale 5 lądował w kodzie ACEScct ≈ 0,414) traktuje symetrycznie to, co fotograf czy operator uznaje za „środek ekspozycji" sceny — zwykle bardziej naturalny wybór przy pracy na materiale scene-referred, gdzie 0,5 nie ma żadnego szczególnego fizycznego znaczenia.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: W praktyce</div>
+    <h2>Exposure i contrast pivot w node'ach obu silników</h2>
+    <p>Node'y korekcji koloru w Arnoldzie i RenderManie (te same <code>aiColorCorrect</code> i <code>PxrColorCorrect</code> z Rozdziału 7) wystawiają ekspozycję jako parametr w stopach, nie jako surowy mnożnik — właśnie dlatego, że stopy dobrze radzą sobie z nieograniczonym, liniowym zakresem scene-referred HDR (Rozdział 3), gdzie „gain razy 1,4" nic intuicyjnie nie mówi, a „plus pół stopa" mówi wszystko. Kontrast w obu node'ach zwykle występuje w parze z osobnym parametrem pivotu — dokładnie z powodu pokazanego w policzonym przykładzie wyżej: bez jawnego pivotu ten sam suwak kontrastu dawałby nieprzewidywalnie różne wyniki w zależności od domyślnego założenia narzędzia.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Stop</dt>
+      <dd>Jednostka multiplikatywna: +1 stop = ×2 jasności. gain = 2^stopy.</dd>
+      <dt>Printer point (punkt drukarski)</dt>
+      <dd>Historyczna jednostka laboratoriów filmowych: 1/12 stopa, 0,025 jednostki log₁₀ ekspozycji.</dd>
+      <dt>Pivot</dt>
+      <dd>Wybrany punkt odniesienia, względem którego liczony jest kontrast — wartości po obu stronach pivotu zmieniają się w przeciwnych kierunkach.</dd>
+      <dt>18% szarości (middle grey)</dt>
+      <dd>Umowny środek ekspozycji fotograficznej, częsty wybór pivotu przy pracy na materiale scene-referred.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Offset, gain, gamma, SOP i kontrast — wszystkie operatory poznane do tej pory działały na każdym kanale RGB tak samo albo niezależnie, nigdy nie pytając o coś tak podstawowego jak „jak nasycony jest ten kolor". Rozdział 10 zamyka Część III: saturacja, obrót barwy i białe wyważenie — operatory, które po raz pierwszy świadomie patrzą na relację między kanałami, nie tylko na wartość każdego z osobna.</p>
   </div>
 
 <div class="site-nav chapter-nav">
