@@ -12,16 +12,133 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 04/24</span><span>CZĘŚĆ · II</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>CZERWONY sRGB · (0,80; 0,10; 0,05)</span><span>TEN SAM KOLOR W ACEScg · (0,53; 0,15; 0,07)</span><span>TŁUMACZ · macierz 3×3</span>
   </div>
 
   <div class="eyebrow">Rozdział 4 / Kolor i linearność</div>
   <h1>Przestrzenie barw i prymarne</h1>
   <p class="subtitle">Czerwony w sRGB i czerwony w ACEScg to dwie różne liczby dla tego samego koloru — macierz 3×3, która tłumaczy między nimi, jest fundamentem każdego pipeline'u kolorystycznego.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>Przestrzeń barw RGB definiują trzy <span class="term-amber">prymarne</span> (chromatyczności R, G, B) plus <span class="term-amber">biały punkt</span> — razem wyznaczają trójkąt na diagramie chromatyczności, czyli <span class="term-cyan">gamut</span>: zbiór kolorów, jakie ta przestrzeń zapisze jako nieujemną mieszankę R, G, B.</li>
+      <li>Ta sama trójka liczb oznacza fizycznie <em>inny</em> kolor w zależności od tego, jakie prymarne za nią stoją — sRGB i ACEScg nie zgadzają się nawet co do tego, czym jest „czerwony".</li>
+      <li>Przejście między dowolnymi dwiema przestrzeniami RGB to mnożenie wektora koloru przez jedną macierz 3×3, zbudowaną z ich prymarnych i białych punktów (pełne wyprowadzenie tej macierzy — przez CIE XYZ jako przestrzeń pośrednią — jest w Dodatku A).</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Prymarne</div>
+    <h2>Trzy światła, którymi mieszasz cały gamut</h2>
+    <p><span class="term-amber">Prymarne</span> danej przestrzeni RGB to trzy konkretne, ustalone kolory — czerwony, zielony, niebieski — które w dowolnych <em>nieujemnych</em> proporcjach mieszasz addytywnie, żeby otrzymać każdy inny kolor, jaki ta przestrzeń potrafi zapisać. „Nieujemnych" jest tu kluczowe: trójka (R,G,B) = (0,8; 0,3; 0,1) to zawsze konkretna mieszanka światła czerwonego, zielonego i niebieskiego w tych proporcjach — nigdy odejmowanie. To właśnie dlatego żadna przestrzeń RGB o skończonym, realnym zestawie prymarnych nie obejmuje wszystkich kolorów widzialnych dla człowieka: pewne bardzo nasycone kolory (zwłaszcza w okolicach turkusu i czystej zieleni) wymagałyby ujemnego udziału jednego z prymarnych, żeby je odtworzyć — czyli leżą poza gamutem.</p>
+    <p>Prymarne opisuje się jako punkty na diagramie chromatyczności CIE 1931 — dwuwymiarowej mapie wszystkich kolorów, jakie rozróżnia ludzki wzrok, niezależnie od jasności (pełne wyprowadzenie tego diagramu, wraz z przestrzenią XYZ, na której stoi, jest w Dodatku B; tutaj wystarczy traktować go jako mapę, na której każdy punkt to jeden konkretny odcień). Do tego dochodzi <span class="term-amber">biały punkt</span> — chromatyczność koloru, który przestrzeń definiuje jako neutralną biel, czyli równe (R,G,B) = (1,1,1). Bez białego punktu prymarne same w sobie nie wystarczą: mówią, <em>które</em> trzy światła mieszasz, ale nie mówią, w jakich proporcjach dają biel.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Cztery przestrzenie</div>
+    <h2>Te same trzy litery, cztery różne trójkąty</h2>
+    <p>Cztery przestrzenie, z którymi ta książka pracuje najczęściej, różnią się dokładnie w tym: gdzie leżą ich prymarne i jaki mają biały punkt.</p>
+
+    <div class="table-frame">
+      <table class="data-table">
+        <thead>
+          <tr><th>Przestrzeń</th><th class="num">R (x, y)</th><th class="num">G (x, y)</th><th class="num">B (x, y)</th><th>Biały punkt</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>sRGB / Rec.709</td><td class="num">0,6400 · 0,3300</td><td class="num">0,3000 · 0,6000</td><td class="num">0,1500 · 0,0600</td><td>D65 (0,3127 · 0,3290)</td></tr>
+          <tr><td>DCI-P3 (D65)</td><td class="num">0,6800 · 0,3200</td><td class="num">0,2650 · 0,6900</td><td class="num">0,1500 · 0,0600</td><td>D65 (0,3127 · 0,3290)</td></tr>
+          <tr><td>ACEScg (AP1)</td><td class="num">0,7130 · 0,2930</td><td class="num">0,1650 · 0,8300</td><td class="num">0,1280 · 0,0440</td><td>~D60 (0,32168 · 0,33767)</td></tr>
+          <tr><td>ACES2065-1 (AP0)</td><td class="num">0,7347 · 0,2653</td><td class="num">0,0000 · 1,0000</td><td class="num">0,0001 · −0,0770</td><td>~D60 (0,32168 · 0,33767)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption">Chromatyczności CIE xy. sRGB i Rec.709 mają identyczne prymarne — to ten sam trójkąt pod dwiema nazwami. „~D60" bo biały punkt ACES nie jest dosłownie D60 (Rozdział 6 wraca do tej niuansy).</p>
+
+    <p>Zauważ trzy rzeczy w tej tabeli. Po pierwsze, niebieski prymarny sRGB i DCI-P3 to <em>dokładnie ten sam punkt</em> — te przestrzenie różnią się tylko czerwonym i zielonym. Po drugie, zielony prymarny ACEScg (0,165; 0,830) leży bardzo blisko granicy tego, co w ogóle widzialne — stąd nazwa AP1 (ACES Primaries, wariant 1) bywa opisywana jako „szeroki, ale wciąż realistyczny" gamut, dobrany tak, żeby mieścił praktycznie każdy kolor, jaki realna kamera może zarejestrować. Po trzecie, zielony prymarny ACES2065-1 (AP0) to (0; 1) — punkt, którego żadne realne źródło światła nie potrafi wyemitować; a niebieski, (0,0001; −0,0770), ma <em>ujemne</em> y, czyli leży całkowicie poza obszarem kolorów widzialnych. AP0 został tak zaprojektowany celowo: to przestrzeń archiwalna, mająca matematycznie pomieścić kompletnie każdy kolor widzialny plus margines bezpieczeństwa, kosztem posiadania prymarnych, które same w sobie nie są realnymi kolorami.</p>
+
+    <div class="diagram-frame">
+      <div class="diagram-hud"><span>Gamut.compare</span><span>diagram chromatyczności, uproszczony</span></div>
+      <svg viewBox="0 0 620 520" xmlns="http://www.w3.org/2000/svg">
+        <!-- horseshoe (uproszczony obrys lokusu widmowego) -->
+        <path d="M 180,456 L 128,380 L 115,260 L 119,128 L 174,144 L 265,196 L 356,256 L 428,284 L 545,354 Z"
+              fill="#1b1e24" stroke="#8b909b" stroke-width="1.4" stroke-opacity="0.6"/>
+        <text x="119" y="118" font-family="IBM Plex Mono" font-size="10" fill="#8b909b">520 nm</text>
+        <text x="552" y="352" font-family="IBM Plex Mono" font-size="10" fill="#8b909b" text-anchor="start">700 nm</text>
+        <text x="170" y="472" font-family="IBM Plex Mono" font-size="10" fill="#8b909b">linia purpur</text>
+
+        <!-- sRGB / Rec.709 -->
+        <polygon points="486,328 265,220 167.5,436" fill="#4fc3c0" fill-opacity="0.12" stroke="#4fc3c0" stroke-width="1.8"/>
+        <!-- DCI-P3 -->
+        <polygon points="512,332 242,184 167.5,436" fill="none" stroke="#6e93be" stroke-width="1.6" stroke-dasharray="4 3"/>
+        <!-- ACEScg AP1 -->
+        <polygon points="533,343 177,128 153,442" fill="#e8a33d" fill-opacity="0.06" stroke="#e8a33d" stroke-width="1.8"/>
+        <!-- ACES2065-1 AP0 -->
+        <polygon points="547,354 70,60 70,491" fill="none" stroke="#9c82d8" stroke-width="1.4" stroke-dasharray="2 3"/>
+
+        <circle cx="276" cy="326" r="3.5" fill="#ecebe4"/>
+        <text x="284" y="322" font-family="IBM Plex Mono" font-size="10" fill="#ecebe4">D65/D60</text>
+
+        <g font-family="IBM Plex Mono" font-size="11">
+          <circle cx="500" cy="480" r="5" fill="#4fc3c0"/><text x="512" y="484" fill="#4fc3c0">sRGB / Rec.709</text>
+          <circle cx="500" cy="498" r="5" fill="none" stroke="#6e93be"/><text x="512" y="502" fill="#6e93be">DCI-P3 (D65)</text>
+          <circle cx="20" cy="480" r="5" fill="#e8a33d"/><text x="32" y="484" fill="#e8a33d">ACEScg (AP1)</text>
+          <circle cx="20" cy="498" r="5" fill="none" stroke="#9c82d8"/><text x="32" y="502" fill="#9c82d8">ACES2065-1 (AP0)</text>
+        </g>
+      </svg>
+      <div class="diagram-caption">Obrys lokusu widmowego uproszczony do kilku punktów — dokładny diagram chromatyczności CIE 1931, wraz z linią purpur, jest w Dodatku B. Zwróć uwagę, że trójkąt AP0 wystaje poza sam lokus: jego prymarne to konstrukcja matematyczna, nie realne kolory.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Tłumaczenie</div>
+    <h2>Macierz 3×3 jako słownik między przestrzeniami</h2>
+    <p>Skoro dwie przestrzenie mają różne prymarne, ta sama trójka (R,G,B) opisuje w nich różne fizyczne kolory — i odwrotnie, ten sam fizyczny kolor ma różne współrzędne w każdej z nich. Żeby przejść z jednej przestrzeni do drugiej bez zmiany faktycznego koloru, potrzebna jest macierz zmiany bazy. Ogólny schemat (pełne wyprowadzenie w Dodatku A) prowadzi przez CIE XYZ jako wspólny, pośredni układ odniesienia — każda przestrzeń RGB ma swoją macierz do XYZ, zbudowaną wprost z jej prymarnych i białego punktu:</p>
+    <div class="formula">[R,G,B]_B = M_(XYZ→B) · M_(A→XYZ) · [R,G,B]_A<span class="sub">[R,G,B]_A — kolor jako trójka liczb w przestrzeni źródłowej A; M_(A→XYZ) — macierz 3×3 zbudowana z prymarnych i białego punktu przestrzeni A; M_(XYZ→B) — odwrotność analogicznej macierzy dla przestrzeni docelowej B; [R,G,B]_B — ten sam fizyczny kolor, we współrzędnych przestrzeni B</span></div>
+    <p>Złożenie tych dwóch macierzy w jedną daje pojedynczą macierz 3×3, która tłumaczy bezpośrednio z A do B — to właśnie tę gotową, złożoną macierz najczęściej widzisz w configu OCIO (Rozdział 6) czy w dokumentacji renderera, bez śladu przejścia przez XYZ. Jeśli białe punkty A i B się różnią (jak D65 w sRGB kontra ~D60 w ACEScg), do złożenia dochodzi dodatkowo <span class="term-violet">adaptacja chromatyczna</span> (transformacja Bradforda) — pełny wywód w Dodatku E; tutaj wystarczy wiedzieć, że jest częścią gotowej macierzy, nie osobnym krokiem, o którym trzeba pamiętać ręcznie.</p>
+
+    <div class="worked">
+      <div class="wlabel">Policzone: ten sam czerwony, sRGB (D65) → ACEScg (AP1, D60)</div>
+      <div class="step"><span class="k">Macierz sRGB→ACEScg</span> (Bradford CAT, zaokrąglona do 4 miejsc):</div>
+      <div class="step"><span class="v">0,6131&nbsp; 0,3395&nbsp; 0,0474</span></div>
+      <div class="step"><span class="v">0,0701&nbsp; 0,9164&nbsp; 0,0135</span></div>
+      <div class="step"><span class="v">0,0206&nbsp; 0,1096&nbsp; 0,8698</span></div>
+      <div class="step"><span class="k">Kolor wejściowy (linear sRGB)</span> = <span class="v">(0,800; 0,100; 0,050)</span></div>
+      <div class="step"><span class="k">R'</span> = 0,6131·0,800 + 0,3395·0,100 + 0,0474·0,050 ≈ <span class="v">0,527</span></div>
+      <div class="step"><span class="k">G'</span> = 0,0701·0,800 + 0,9164·0,100 + 0,0135·0,050 ≈ <span class="v">0,148</span></div>
+      <div class="step"><span class="k">B'</span> = 0,0206·0,800 + 0,1096·0,100 + 0,8698·0,050 ≈ <span class="v">0,071</span></div>
+      <div class="result">(0,800; 0,100; 0,050) w sRGB = (0,527; 0,148; 0,071) w ACEScg — ten sam fizyczny czerwony, dwie różne trójki liczb</div>
+      <div class="check">Sprawdzenie: suma współczynników w każdym wierszu macierzy jest bliska 1,0 (0,6131+0,3395+0,0474≈1,000), co jest wymagane, żeby biel (1,1,1) w jednej przestrzeni mapowała się na biel (1,1,1) w drugiej.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Dlaczego to ma znaczenie w lookdevie</div>
+    <h2>Working space to decyzja, nie formalność</h2>
+    <p>W praktyce nie liczysz tych macierzy ręcznie za każdym razem — robi to config OCIO (Rozdział 6) przy każdym odczycie tekstury i każdym wyświetleniu na ekranie. Ale sama <em>decyzja</em>, w jakiej przestrzeni renderer wykonuje shading — czyli working space — nie jest formalnością. ACEScg (AP1) stał się w produkcji standardowym working space właśnie dlatego, że jest wystarczająco szeroki, by pomieścić realne kolory kamer i materiałów, a jednocześnie wystarczająco „ciasny" (w porównaniu z AP0), żeby operacje takie jak mnożenie w shaderze czy mieszanie w warstwach (Rozdział 15) nie generowały artefaktów przy bardzo nasyconych kolorach blisko granic gamutu. Ta sama macierz, która w tym rozdziale tłumaczyła jeden czerwony piksel, w praktyce działa na każdym pikselu każdej tekstury wchodzącej do sceny — Rozdział 6 pokazuje, gdzie dokładnie w pipeline'ie Arnolda i RenderMana ten krok się odbywa.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Prymarne</dt>
+      <dd>Trzy referencyjne kolory (R, G, B) danej przestrzeni, mieszane addytywnie w nieujemnych proporcjach.</dd>
+      <dt>Biały punkt</dt>
+      <dd>Chromatyczność koloru zdefiniowanego jako (1,1,1) — neutralna biel danej przestrzeni.</dd>
+      <dt>Gamut</dt>
+      <dd>Zbiór kolorów możliwych do zapisania w danej przestrzeni — geometrycznie trójkąt na diagramie chromatyczności.</dd>
+      <dt>CIE XYZ</dt>
+      <dd>Przestrzeń pośrednia, niezależna od żadnych konkretnych prymarnych, używana jako wspólny punkt odniesienia przy tłumaczeniu między przestrzeniami RGB — pełny wywód w Dodatku B.</dd>
+      <dt>Adaptacja chromatyczna</dt>
+      <dd>Korekta stosowana przy tłumaczeniu między przestrzeniami o różnych białych punktach (np. D65 → D60) — Dodatek E.</dd>
+      <dt>AP0 / AP1</dt>
+      <dd>Dwa zestawy prymarnych ACES: AP0 (ACES2065-1) — archiwalny, pojemnościowo obejmujący cały widzialny gamut plus margines; AP1 (ACEScg) — praktyczny working space do renderowania i kompozytingu.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Ten rozdział zakładał, że wiesz, jak przejść z liczby zapisanej w pliku (percepcyjnej) na liczbę liniową, zanim w ogóle zaczniesz mnożyć przez macierze. Rozdział 5 domyka tę lukę: pokazuje dokładny kształt krzywych transferu — gamma, prawdziwe sRGB, log encodingi — stojących za tym pierwszym, wcześniej pominiętym krokiem.</p>
   </div>
 
 <div class="site-nav chapter-nav">

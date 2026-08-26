@@ -12,16 +12,117 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 05/24</span><span>CZĘŚĆ · II</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>UPROSZCZONA GAMMA · x^(1/2,2)</span><span>PRAWDZIWE sRGB · liniowy odcinek + x^(1/2,4)</span><span>LOG · stały krok na stop</span>
   </div>
 
   <div class="eyebrow">Rozdział 5 / Kolor i linearność</div>
   <h1>Krzywe transferu: gamma i log</h1>
   <p class="subtitle">Gamma 2,2 to uproszczenie, którym posługuje się cała branża — prawdziwe sRGB, LogC czy ACEScct mają dodatkowe segmenty, o których żaden slider Ci nie powie.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>„Gamma 2,2" to wygodne uproszczenie. Prawdziwe sRGB to funkcja <em>kawałkami</em>: krótki liniowy odcinek blisko czerni plus przesunięta potęga 1/2,4 — nie goła potęga 1/2,2.</li>
+      <li><span class="term-cyan">Log encodingi</span> (ACEScct, ARRI LogC, Sony S-Log3, historyczny Cineon) rozwiązują inny problem niż gamma: równomiernie rozkładają precyzję na kilkanaście stopów, jakie przechwytuje matryca kamery — tam, gdzie gamma, zaprojektowana pod ~8–10 stopów ekranu, zaczyna jej brakować.</li>
+      <li>Każdy log encoding ma też własny krótki liniowy odcinek blisko czerni — z dokładnie tego samego powodu co sRGB: czysty logarytm eksploduje do minus nieskończoności przy zerze, więc coś musi przejąć tę okolicę.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Prosta gamma</div>
+    <h2>Gamma jako funkcja potęgowa — i skąd się w ogóle wzięła</h2>
+    <p>Rozdział 2 pokazał, dlaczego percepcja jasności jest w przybliżeniu logarytmiczna. Najprostszy sposób, żeby to przybliżyć jedną funkcją, to potęga:</p>
+    <div class="formula">V_encoded = V_linear^(1/γ)<span class="sub">V_linear — wartość liniowa (proporcjonalna do fizycznego światła); γ (gamma) — wykładnik, zwykle 2,2 lub 2,4; V_encoded — wartość zapisana w pliku lub wysłana do ekranu</span></div>
+    <p>Gamma nie jest wynalazkiem branży efektów specjalnych — to spadek po kineskopach (CRT). Działo elektronowe starego telewizora czy monitora fizycznie reagowało na napięcie sterujące z wykładnikiem bliskim 2,4–2,5: podwojenie napięcia nie dawało podwojenia jasności plamki, tylko jasność w przybliżeniu proporcjonalną do napięcia podniesionego do tej potęgi. Żeby obraz wyglądał poprawnie, sygnał trzeba było więc <em>wcześniej</em> zakodować odwrotną potęgą (1/γ) — i ten krok, historycznie czysto elektroniczna konieczność, przypadkiem zadziałał też jako niezłe przybliżenie krzywej percepcji z Rozdziału 2. Nowoczesne ekrany (LCD, OLED) nie mają już fizycznego działa elektronowego, ale zachowały ten sam standard kodowania cyfrowo — dekodują go programowo, nie dzięki fizyce lampy.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Prawdziwe sRGB</div>
+    <h2>Dlaczego prawdziwe sRGB to nie jest goła potęga</h2>
+    <p>Czysta funkcja potęgowa ma jedną niewygodną własność blisko zera: jej pochodna przy V=0 dąży do nieskończoności (dla wykładnika mniejszego niż 1, jak 1/2,4). W praktyce oznacza to, że najmniejsze różnice w wartości liniowej blisko czerni zostałyby wzmocnione do bardzo dużych skoków w wartości zakodowanej — każdy szum czy błąd zaokrąglenia w cieniach eksplodowałby na widoczne artefakty. Standard sRGB (IEC 61966-2-1) rozwiązuje to, zastępując sam dół krzywej krótkim odcinkiem liniowym:</p>
+    <div class="formula">V_sRGB = 12,92 · V_linear, dla V_linear ≤ 0,0031308<br>V_sRGB = 1,055 · V_linear^(1/2,4) − 0,055, dla V_linear &gt; 0,0031308<span class="sub">Kodowanie (encode): z wartości liniowej do pliku/ekranu. Zwróć uwagę na wykładnik 1/2,4, nie 1/2,2 — i na przesunięcie −0,055, które sprawia, że funkcja potęgowa łączy się z odcinkiem liniowym bez skoku</span></div>
+    <div class="formula">V_linear = V_sRGB / 12,92, dla V_sRGB ≤ 0,04045<br>V_linear = ((V_sRGB + 0,055) / 1,055)^2,4, dla V_sRGB &gt; 0,04045<span class="sub">Dekodowanie (decode): z pliku/ekranu z powrotem do wartości liniowej — dokładnie ten krok, który Rozdział 3 nazwał warunkiem koniecznym przed wejściem do jakiegokolwiek wzoru na shading</span></div>
+    <p>Progi 0,0031308 (w linear) i 0,04045 (w sRGB) to dokładnie ten sam punkt na krzywej, wyrażony w dwóch różnych jednostkach — miejsce, w którym odcinek liniowy przechodzi w odcinek potęgowy tak, żeby wartość <em>i</em> nachylenie funkcji zgadzały się po obu stronach (bez tego przejście byłoby widoczne jako subtelny załamek na krzywej). Dokładne wyprowadzenie tych stałych — skąd się bierze akurat 1,055 i 0,055 — jest w Dodatku C; tutaj wystarczy wiedzieć, że różnica między tą pełną formułą a uproszczoną gołą potęgą 1/2,2 jest w praktyce niewielka.</p>
+    <div class="worked">
+      <div class="wlabel">Policzone: uproszczona gamma 2,2 kontra prawdziwe sRGB, dla V = 0,5</div>
+      <div class="step"><span class="k">Uproszczona (^2,2)</span>: 0,5^2,2 ≈ <span class="v">0,218</span> (linear)</div>
+      <div class="step"><span class="k">Prawdziwe sRGB</span>: ((0,5 + 0,055) / 1,055)^2,4 = 0,5261^2,4 ≈ <span class="v">0,214</span> (linear)</div>
+      <div class="result">Różnica: ok. 2% — realna, ale dużo mniejsza niż błąd z Rozdziału 3 (16%) wynikający z całkowitego pominięcia dekodowania</div>
+      <div class="check">Wniosek: to, <em>czy</em> dekodujesz teksturę, ma dużo większe znaczenie niż to, którą dokładnie krzywą (uproszczoną czy pełną) do tego użyjesz — ale przy pracach porównawczych (Dodatek C, Pomocnik Tom 1) różnica 2% bywa dokładnie tym, co odróżnia zgodność z Nuke/OCIO od przybliżenia.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Po co log</div>
+    <h2>Gamma zawodzi tam, gdzie zaczyna się materiał z kamery</h2>
+    <p>Ekran SDR ma zakres rzędu 7–10 stopów (Rozdział 2) — i krzywa gamma jest dobrana pod dokładnie taki zakres: rozkłada dostępne kody (8 czy 10 bitów) tak, żeby wystarczyło ich na cienie i światła w tych granicach, bez widocznego bandingu. Nowoczesna matryca kamery filmowej rejestruje jednak 12–16 stopów i więcej. Gdyby zapisać taki materiał wprost krzywą gamma zaprojektowaną pod ekran, coś musi ucierpieć: albo górne stopy się przepalą (zabraknie kodów, żeby je odróżnić od bieli), albo cienie stracą precyzję, bo gamma i tak większość dostępnych kodów kieruje w stronę czerni, zostawiając mało miejsca dla rozciągniętego w górę zakresu jasnych partii.</p>
+    <p><span class="term-amber">Log encoding</span> rozwiązuje to inaczej niż gamma: zamiast krzywej potęgowej używa logarytmu, którego kluczowa własność to stały krok kodu na każdy <em>stop</em> (podwojenie jasności), niezależnie od tego, czy ten stop leży blisko czerni czy blisko granicy zakresu matrycy. Gamma tej własności nie ma — jej „gęstość kodów na stop" zmienia się wzdłuż krzywej. To dlatego materiał z kamery filmowej bywa nagrywany w formie „płaskiej", mało kontrastowej — log nie jest formatem do oglądania, tylko gęstym, równomiernym zapisem surowego zakresu, przeznaczonym do gradingu (Część III) już po zdjęciach.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Konkretna krzywa</div>
+    <h2>ACEScct jako w pełni jawny przykład</h2>
+    <p>Krzywe log kamer (ARRI LogC, Sony S-Log3) mają stałe dobrane przez producenta pod konkretną matrycę — publikowane w białych księgach danego producenta, sprawdzane per projekt, nie warte zapamiętywania na pamięć. ACEScct, log encoding samego ACES używany jako working space pod grading (Rozdział 6, Dodatek G), ma stałe w pełni jawne i publiczne — dobry, konkretny przykład tej samej idei:</p>
+    <div class="formula">ACEScct = 10,5402377416545 · lin_AP1 + 0,0729055341958355, dla lin_AP1 ≤ 0,0078125<br>ACEScct = (log₂(lin_AP1) + 9,72) / 17,52, dla lin_AP1 &gt; 0,0078125<span class="sub">lin_AP1 — wartość liniowa w przestrzeni ACEScg (Rozdział 4); log₂ — logarytm o podstawie 2, naturalny wybór, skoro jeden stop to dokładnie podwojenie; stałe 9,72 i 17,52 przesuwają i skalują wynik tak, żeby zmieścił się w wygodnym zakresie 0–1</span></div>
+    <div class="worked">
+      <div class="wlabel">Policzone: kod ACEScct dla 18% szarości (środek ekspozycji fotograficznej)</div>
+      <div class="step"><span class="k">lin_AP1</span> = <span class="v">0,18</span></div>
+      <div class="step"><span class="k">log₂(0,18)</span> ≈ <span class="v">−2,474</span></div>
+      <div class="step"><span class="k">ACEScct</span> = (−2,474 + 9,72) / 17,52 ≈ <span class="v">0,4136</span></div>
+      <div class="result">18% szarości ląduje w kodzie ≈ 0,414 — nieprzypadkowo blisko środka zakresu 0–1</div>
+      <div class="check">Sprawdzenie stałego kroku na stop: pochodna funkcji log względem log₂(lin) to 1/17,52 ≈ 0,0571 — każdy kolejny stop ekspozycji, od najciemniejszego do najjaśniejszego końca zakresu, przesuwa kod ACEScct o dokładnie tę samą wartość. To jest właściwość, której gamma nie ma, i właśnie dla niej istnieje log.</div>
+    </div>
+    <p>ARRI LogC (obecnie w wersji Wide Gamut / LogC4), Sony S-Log3 i historyczny Cineon (log encoding zaprojektowany jeszcze pod skan negatywu filmowego, prekursor całej tej rodziny krzywych) mają dokładnie tę samą architekturę — krótki liniowy odcinek blisko czerni plus segment logarytmiczny — różniącą się stałymi dobranymi pod konkretną matrycę czy skaner. Rozdział 6 pokazuje, gdzie w praktyce Arnold i RenderMan aplikują te krzywe automatycznie, zamiast liczyć je ręcznie w node'ach.</p>
+  </div>
+
+  <div class="section">
+  <div class="diagram-frame">
+    <div class="diagram-hud"><span>Curve.shapes</span><span>linear → gamma → log, ten sam zakres wejścia</span></div>
+    <svg viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg">
+      <line x1="60" y1="220" x2="700" y2="220" stroke="#8b909b" stroke-width="1.5"/>
+      <line x1="60" y1="220" x2="60" y2="30" stroke="#8b909b" stroke-width="1.5"/>
+      <text x="60" y="238" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#8b909b">0</text>
+      <text x="700" y="238" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#8b909b">wartość liniowa (0–1, przycięta)</text>
+      <text x="46" y="34" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="#8b909b">1,0</text>
+
+      <!-- linear -->
+      <line x1="60" y1="220" x2="700" y2="30" stroke="#6e93be" stroke-width="2"/>
+      <!-- gamma 1/2.2 -->
+      <path d="M 60,220 L 92,132 L 124,107 L 156,92 L 188,80 L 220,71 L 252,64 L 316,52 L 380,44 L 444,38 L 508,34 L 700,30"
+            fill="none" stroke="#4fc3c0" stroke-width="2.2"/>
+      <!-- log-ish (steep near 0, flattens) -->
+      <path d="M 60,220 L 76,140 L 92,110 L 124,80 L 172,60 L 236,48 L 316,40 L 412,35 L 508,32 L 700,30"
+            fill="none" stroke="#e8a33d" stroke-width="2.2" stroke-dasharray="6 3"/>
+
+      <g font-family="IBM Plex Mono" font-size="11">
+        <circle cx="560" cy="200" r="5" fill="#6e93be"/><text x="572" y="204" fill="#6e93be">liniowe (bez kodowania)</text>
+        <circle cx="560" cy="220" r="5" fill="#4fc3c0"/><text x="572" y="224" fill="#4fc3c0">gamma — mniej kodów przy bieli</text>
+        <circle cx="560" cy="240" r="5" fill="#e8a33d"/><text x="572" y="244" fill="#e8a33d">log — kod równy na każdy stop</text>
+      </g>
+    </svg>
+    <div class="diagram-caption">Gamma i log obie „unoszą" ciemne wartości wyżej niż linia prosta — ale log robi to z myślą o równych krokach na stop w szerokim zakresie, gamma z myślą o zakresie ekranu.</div>
+  </div>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Gamma</dt>
+      <dd>Kodowanie percepcyjne w formie funkcji potęgowej V^(1/γ); γ zwykle 2,2 lub 2,4.</dd>
+      <dt>EOTF / OETF</dt>
+      <dd>Electro-Optical / Opto-Electrical Transfer Function — formalne nazwy funkcji dekodującej (EOTF, kod → światło z ekranu) i kodującej (OETF, światło → kod).</dd>
+      <dt>Log encoding</dt>
+      <dd>Kodowanie logarytmiczne dające stały krok kodu na jeden stop ekspozycji, niezależnie od miejsca w zakresie — używane do przechwytywania szerokiego zakresu kamer.</dd>
+      <dt>Middle grey (18% szarości)</dt>
+      <dd>Umowny punkt odniesienia ekspozycji fotograficznej, w przybliżeniu środek subiektywnego zakresu tonalnego — realizowany w ACEScct jako kod ≈ 0,414.</dd>
+      <dt>Code value</dt>
+      <dd>Konkretna liczba zapisana w pliku lub buforze — odróżniana celowo od „jasności", bo związek między nimi zależy od krzywej transferu.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Wiesz już, czym są te krzywe i po co istnieją. Rozdział 6 pokazuje, jak w praktyce nie liczy się ich ręcznie w każdym node'zie — jeden config OpenColorIO aplikuje właściwe dekodowanie na wejściu, właściwy working space w środku i właściwy display transform na wyjściu, automatycznie, w viewporcie Arnolda i RenderMana naraz.</p>
   </div>
 
 <div class="site-nav chapter-nav">

@@ -12,16 +12,109 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 06/24</span><span>CZĘŚĆ · II</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>CONFIG · jeden plik</span><span>INPUT · transform per teksturę</span><span>WORKING · ACEScg</span><span>OUTPUT · RRT+ODT</span>
   </div>
 
   <div class="eyebrow">Rozdział 6 / Kolor i linearność</div>
   <h1>OCIO i ACES z perspektywy artysty lookdev</h1>
   <p class="subtitle">Ten sam plik EXR wygląda inaczej w viewporcie Arnolda i RenderMana, dopóki obu nie każesz patrzeć przez ten sam config — tu wchodzisz do niego jako użytkownik, nie architekt.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li><span class="term-amber">OCIO</span> (OpenColorIO) to jeden plik konfiguracyjny, który definiuje nazwane przestrzenie barw i transformacje między nimi — Arnold i RenderMan czytają ten sam config, więc ten sam plik wygląda identycznie w obu, jeśli obu każesz patrzeć przez ten sam plik (pipeline-book, Dodatek D, rozkłada architekturę tego pliku na czynniki pierwsze; tu interesuje nas strona artysty, nie architekta configu).</li>
+      <li>W typowym pipeline'ie ACES trzy etapy dzielą pracę: <span class="term-cyan">Input Transform</span> dekoduje materiał wejściowy do wspólnego scene-linear, <span class="term-cyan">working space</span> (ACEScg, Rozdział 4) to przestrzeń, w której faktycznie liczy się shading, a <span class="term-cyan">Output Transform</span> na końcu kompresuje scene-linear HDR do konkretnego wyświetlacza.</li>
+      <li>Najczęstszy błąd praktyczny w lookdevie: ocenianie materiału pod innym display transformem niż ten, który zobaczy supervisor na sign-off — dwie różne interpretacje tych samych liczb scene-linear, dwie różne opinie o tym, czy look jest gotowy.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Po co config</div>
+    <h2>Dlaczego nie robi się tego ręcznie w każdym node'zie</h2>
+    <p>Rozdziały 3 i 5 opisały mechanikę: dekoduj na wejściu właściwą krzywą, licz w scene-linear, koduj na wyjściu. W teorii dałoby się to złożyć ręcznie — node dekodujący pod każdą teksturą, node kodujący pod każdym wyjściem — ale przy dziesiątkach artystów, setkach tekstur i kilku aplikacjach (Maya, Houdini, Nuke, Arnold, RenderMan) w jednym pipeline'ie ręczne dopasowywanie tych transformacji gwarantuje rozjazdy: jeden artysta zapomni node'a, drugi użyje niewłaściwej krzywej, trzeci innej wersji ACES niż reszta zespołu. <span class="term-amber">OpenColorIO</span> centralizuje to w jednym pliku config, do którego odwołuje się każda aplikacja w łańcuchu — ten sam plik EXR, ta sama nazwana przestrzeń, ten sam wynik niezależnie od tego, czy oglądasz go w Mayi, w Nuke, czy w finalnym renderze z Arnolda albo RenderMana.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Trzy przystanki</div>
+    <h2>Input Transform, working space, Output Transform</h2>
+    <p>Pipeline ACES, z którym pracujesz jako lookdev artist, dzieli się na trzy etapy, z których każdy odpowiada innej części tego, co już wiesz z poprzednich rozdziałów:</p>
+    <ul class="compact">
+      <li><strong>Input Transform</strong> (w starszej terminologii ACES: IDT, Input Device Transform) — dekoduje konkretne źródło (zdjęcie z kamery w LogC czy S-Log3, teksturę sRGB, HDRI) do wspólnego scene-linear ACES. To ten sam krok „decode" z diagramu w Rozdziale 3, tylko sparametryzowany pod konkretne źródło — inny Input Transform dla materiału z kamery ARRI, inny dla tekstury malowanej w Substance.</li>
+      <li><strong>Working space</strong> — ACEScg (AP1, Rozdział 4), przestrzeń, w której Arnold i RenderMan faktycznie wykonują shading, mieszanie warstw i cały light transport. To ta sama „strefa środkowa" z diagramu w Rozdziale 3 — teraz już wiesz dokładnie, w jakiej konkretnie przestrzeni ona się odbywa.</li>
+      <li><strong>Output Transform</strong> — złożenie dawnego RRT (Reference Rendering Transform, uniwersalna kompresja scene-linear HDR do zakresu wyświetlanego) i ODT (Output Device Transform, dopasowanie do konkretnego ekranu: Rec.709, P3-D65, HDR PQ). Pełny wywód matematyki RRT/ODT — łącznie z tym, co dokładnie zmieniło się w ACES 2.0 — jest w raytracing-book, Dodatkach L–O; tu liczy się tylko, że to właśnie ten etap decyduje, jak scene-linear liczby, na których liczysz shading, zamieniają się w piksele na Twoim ekranie.</li>
+    </ul>
+
+    <div class="diagram-frame">
+      <div class="diagram-hud"><span>OCIO.pipeline</span><span>Input → Working → Output, jeden config</span></div>
+      <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrO6" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#8b909b"/>
+          </marker>
+        </defs>
+        <g font-family="IBM Plex Sans" font-size="12.5" fill="#ecebe4" text-anchor="middle">
+          <rect x="20" y="60" width="170" height="64" rx="8" fill="#20242c" stroke="#6e93be"/>
+          <text x="105" y="86">Input Transform</text>
+          <text x="105" y="104" font-size="10.5" fill="#8b909b">LogC, sRGB, HDRI → linear</text>
+
+          <rect x="230" y="60" width="170" height="64" rx="8" fill="#20242c" stroke="#e8a33d" stroke-width="1.8"/>
+          <text x="315" y="86">ACEScg</text>
+          <text x="315" y="104" font-size="10.5" fill="#8b909b">working space — shading tu</text>
+
+          <rect x="440" y="60" width="170" height="64" rx="8" fill="#20242c" stroke="#6e93be"/>
+          <text x="525" y="80">Output Transform</text>
+          <text x="525" y="98" font-size="10.5" fill="#8b909b">RRT + ODT</text>
+          <text x="525" y="114" font-size="10.5" fill="#8b909b">→ Rec.709 / P3 / HDR</text>
+
+          <rect x="650" y="70" width="90" height="44" rx="8" fill="#20242c" stroke="#4fc3c0"/>
+          <text x="695" y="97">Ekran</text>
+        </g>
+        <line x1="190" y1="92" x2="228" y2="92" stroke="#8b909b" stroke-width="2" marker-end="url(#arrO6)"/>
+        <line x1="400" y1="92" x2="438" y2="92" stroke="#8b909b" stroke-width="2" marker-end="url(#arrO6)"/>
+        <line x1="610" y1="92" x2="648" y2="92" stroke="#8b909b" stroke-width="2" marker-end="url(#arrO6)"/>
+        <text x="380" y="180" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#8b909b">Jeden config OCIO opisuje wszystkie trzy strzałki naraz — Arnold i RenderMan czytają ten sam plik</text>
+      </svg>
+      <div class="diagram-caption">To ten sam schemat co w Rozdziale 3, teraz nazwany terminologią ACES — i wykonywany automatycznie przez config, nie ręcznie w każdym node'zie.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Role</div>
+    <h2>Nazwane przestrzenie, nie surowa matematyka</h2>
+    <p>Na co dzień nie wybierasz „macierzy 3×3 numer siedem" — config OCIO wystawia <span class="term-violet">nazwane przestrzenie barw</span> i <span class="term-violet">role</span>: etykiety w rodzaju „ACES2065-1", „ACEScg", „Utility – sRGB – Texture", „Output – Rec.709". Kiedy w Arnoldzie czy RenderManie ustawiasz color space dla wczytywanej tekstury, wybierasz z tej listy, nie z surowych współczynników. Role idą o krok dalej — to uniwersalne aliasy w rodzaju <code>scene_linear</code> czy <code>color_picking</code>, które wskazują na konkretną przestrzeń zdefiniowaną w configu, dzięki czemu narzędzie (albo skrypt pipeline'u) może zapytać „w jakiej przestrzeni robimy w tym show scene-linear?" bez znajomości szczegółów configu. Pełna anatomia samego pliku config — sekcje, wyszukiwanie ścieżki, dziedziczenie ról — jest w pipeline-book, Dodatku D; tu wystarczy wiedzieć, że to właśnie ta warstwa nazw stoi między Tobą a macierzami z Rozdziału 4.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: W praktyce</div>
+    <h2>Arnold i RenderMan — ten sam config, inne miejsca w interfejsie</h2>
+    <p>Struktura jest identyczna w obu rendererach, tylko konkretne miejsca w interfejsie się różnią. W Arnoldzie za odczyt configu odpowiada color manager oparty na OCIO, podpięty do render globals całej sceny; każdy node wczytujący obraz (tekstura, HDRI) ma własny parametr color space wybierany z listy zdefiniowanej w tym configu, a render view ma osobny wybór display/view transform, niezależny od tego, co faktycznie trafia do pliku wyjściowego. W RenderManie mechanizm jest analogiczny: integracja z OCIO pozwala przypisać przestrzeń wejściową per tekstura, a to, co widzisz w It (interaktywnym render view RenderMana), przechodzi przez wybrany display/view transform tego samego configu. Innymi słowy: ten sam trójkąt Input → Working → Output z poprzedniej sekcji, tylko okno dialogowe, w którym go ustawiasz, nazywa się inaczej w każdym z dwóch programów. Dodatek K rozkłada Arnolda na dokładne nazwy node'ów i parametrów, Dodatek L robi to samo dla RenderMana, a Dodatek N zestawia oba obok siebie w jednej tabeli.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Najczęstszy błąd</div>
+    <h2>Grading pod niewłaściwym display transformem</h2>
+    <p>Wszystkie liczby, na których operujesz podczas budowy materiału, żyją w scene-linear ACEScg — ale to, co <em>widzisz</em> na ekranie, zawsze przechodzi przez jakiś Output Transform. Jeśli lookdev artist ocenia i dostraja materiał patrząc przez transform „Rec.709 – Standard", a supervisor na sesji sign-off patrzy przez „P3-D65 – Cinema" (Dodatek I pokazuje, skąd bierze się ta różnica i jak kalibruje się oba środowiska), to obaj patrzą na dokładnie te same liczby scene-linear, ale widzą <em>różny</em> obraz — inny kontrast, inną nasyconość, czasem inaczej wyglądające highlighty. To nie jest błąd w materiale; to błąd w tym, że dwie osoby porównywały wrażenia wzrokowe wygenerowane przez dwa różne transformy. Praktyczna zasada: sign-off (Rozdział 1) zawsze odbywa się pod dokładnie tym Output Transformem, jaki zobaczy finalny odbiorca — jeśli to kino, oceniasz pod transformem kinowym od samego początku procesu build, nie dopiero na końcu.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>OCIO (OpenColorIO)</dt>
+      <dd>Otwarty standard i biblioteka do zarządzania kolorem w pipeline — jeden config czytany przez wiele aplikacji naraz.</dd>
+      <dt>Input Transform (IDT)</dt>
+      <dd>Dekodowanie konkretnego źródła materiału do wspólnego scene-linear.</dd>
+      <dt>Working space</dt>
+      <dd>Przestrzeń, w której renderer faktycznie wykonuje shading — w tej książce niemal zawsze ACEScg.</dd>
+      <dt>Output Transform (RRT + ODT)</dt>
+      <dd>Złożona transformacja z scene-linear HDR do konkretnego wyświetlacza — pełna matematyka w raytracing-book, Dodatkach L–O.</dd>
+      <dt>Rola (role)</dt>
+      <dd>Uniwersalny alias w configu OCIO (np. <code>scene_linear</code>) wskazujący na konkretną, nazwaną przestrzeń barw.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Cała Część II odpowiedziała na pytanie „jak liczby w ogóle docierają poprawnie do ekranu". Część III zaczyna zadawać inne pytanie: skoro wiesz już, że patrzysz na poprawny obraz, jak świadomie go zmienić — podnieść ekspozycję, przesunąć czerń, dodać kontrast — nie psując przy tym niczego, co Część II tak starannie poskładała. Rozdział 7 zaczyna od trzech najbardziej podstawowych operatorów: offsetu, gainu i gammy.</p>
   </div>
 
 <div class="site-nav chapter-nav">

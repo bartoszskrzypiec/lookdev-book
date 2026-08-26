@@ -98,6 +98,11 @@ introducing real math typesetting. Only the *vocabulary* inside components chang
 - Inline SVG diagrams: transfer function curves, chromaticity diagrams, BRDF lobes, shader graphs,
   turntable/HDRI diagrams — instead of ray-bounce diagrams.
 - Color tokens (`--amber/--cyan/--violet/--raster`) stay as accents.
+- `.table-frame` / `.data-table` is a genuinely new component, not inherited from either sibling
+  book (neither has a styled `<table>`) — added while writing Rozdział 4 because this book needs
+  real comparison tables (color space primaries, Arnold↔RenderMan parameters) more than either
+  sibling did. Styled to match the existing dark theme (`var(--border)`, `var(--mono)` headers).
+  Reuse it rather than inventing another table style or falling back to unstyled `<table>`.
 
 ## Content authoring rules
 
