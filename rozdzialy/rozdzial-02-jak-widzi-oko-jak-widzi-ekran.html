@@ -12,16 +12,115 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 02/24</span><span>CZĘŚĆ · I</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>OKO · adaptacja do ~20 min</span><span>ZAKRES CHWILOWY · ~10⁴:1</span><span>EKRAN SDR · ~10²:1</span><span>LUKA · niedomknięta</span>
   </div>
 
   <div class="eyebrow">Rozdział 2 / Fundamenty lookdevu</div>
   <h1>Jak widzi oko, jak widzi ekran</h1>
   <p class="subtitle">Zanim zaczniesz poprawiać kontrast na ekranie, warto wiedzieć, że Twoje oko już to robi sto razy szybciej — i dlaczego cała reszta książki bierze się z tej jednej różnicy.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>Oko nie mierzy jasności liniowo — reaguje na <em>stosunki</em> jasności, nie na różnice absolutne (prawo Webera-Fechnera), przez co jest dużo czulsze na zmiany w cieniach niż w światłach.</li>
+      <li>Zakres jasności, jaki oko obejmuje w jednej chwili, znacznie przewyższa to, co potrafi wyświetlić zwykły ekran (umowny zakres 0–1) — a jeszcze bardziej przewyższa go zakres, jaki oko obejmuje z czasem, dzięki adaptacji.</li>
+      <li>Ta jedna rozbieżność — między tym, jak działa percepcja, a tym, co potrafi pokazać wyświetlacz — jest powodem istnienia gamma, log encodingu i tone mappingu. Cała reszta tej książki to konsekwencje tego jednego faktu.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <p>Wyjdź w słoneczny dzień z ciemnego pomieszczenia i przez chwilę nic nie widzisz — za jasno. Wejdź do kina w środku seansu i przez chwilę nie widzisz wolnych miejsc — za ciemno. W obu przypadkach po kilkudziesięciu sekundach do kilkunastu minut widzisz normalnie. To nie jest metafora ani ciekawostka biologiczna — to dokładnie ten sam mechanizm, który sprawia, że plik tekstury zapisany „na oko" w Photoshopie wygląda inaczej niż powinien w linear light workflow renderera (Rozdział 3), i że ten sam materiał wygląda inaczej pod HDRI ze studia niż pod ostrym słońcem (Rozdział 21). Zanim zajmiemy się matematyką, która z tego wynika, warto zobaczyć problem u źródła.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Adaptacja</div>
+    <h2>Oko nie ma jednego zakresu — ma kilka, nakładających się</h2>
+    <p>Siatkówka ma dwa typy fotoreceptorów, czułe na zupełnie różne zakresy jasności. <span class="term-cyan">Pręciki</span> (rods) działają w warunkach bardzo słabego światła (widzenie skotopowe, poniżej mniej więcej 0,01 cd/m² — światło gwiazd, ciemna noc) i nie rozróżniają kolorów. <span class="term-cyan">Czopki</span> (cones) przejmują w warunkach dziennych (widzenie fotopowe, powyżej ok. 3–10 cd/m² — pokój, ulica, słońce) i to one dają kolor. Między nimi jest szeroka strefa mezopowa, w której działają oba typy naraz. Żaden pojedynczy typ receptora nie obejmuje całego zakresu, w jakim funkcjonujesz w ciągu dnia — obejmuje go dopiero <em>przełączanie</em> między nimi.</p>
+    <p>To przełączanie to adaptacja, i zachodzi na dwóch prędkościach. Źrenica reaguje w ułamku sekundy, zmieniając ilość światła wpadającego do oka nawet szesnastokrotnie — to najszybszy, ale też najsłabszy mechanizm. Prawdziwa siła adaptacji leży w samych fotoreceptorach: pigmenty światłoczułe (rodopsyna w pręcikach) zużywają się pod wpływem światła i muszą się photochemicznie zregenerować w ciemności — proces, który dla pełnej adaptacji do ciemności zajmuje nawet 20–30 minut, podczas gdy adaptacja do jasności po wyjściu z ciemnego pomieszczenia zachodzi w kilkanaście sekund. Efekt: w każdej pojedynczej chwili masz dostęp tylko do wycinka pełnego zakresu, jaki oko potrafi w ogóle obsłużyć — reszta wymaga czasu.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Weber-Fechner</div>
+    <h2>Dlaczego cienie „ważą więcej” niż światła</h2>
+    <p>To, że oko adaptuje się do różnych poziomów jasności, to dopiero połowa historii. Druga połowa dotyczy tego, jak oko rozróżnia jasności <em>w obrębie</em> jednego zakresu, do którego jest akurat zaadaptowane — i tu wchodzi obserwacja znana jako <span class="term-amber">prawo Webera-Fechnera</span>: najmniejsza zauważalna różnica jasności (<em>just-noticeable difference</em>, JND) nie jest stałą liczbą, tylko stałym <em>stosunkiem</em> do jasności bazowej.</p>
+    <div class="formula">ΔI / I = k<span class="sub">ΔI — najmniejsza różnica jasności, jaką oko jeszcze zauważa; I — jasność bazowa, na tle której ta różnica występuje; k — stała (dla jasności ok. 1–2%, zależnie od warunków) — ten sam ułamek jasności bazowej, niezależnie od tego, czy I jest duże czy małe</span></div>
+    <p>Konsekwencja jest bezpośrednia: przy jasności bazowej I = 10 (jednostki umowne) oko zauważy różnicę rzędu 0,1–0,2. Przy jasności bazowej I = 1000 ta sama <em>bezwzględna</em> różnica 0,1–0,2 jest kompletnie niewidoczna — dopiero różnica rzędu 10–20 (ten sam stosunek 1–2%) stanie się zauważalna. Innymi słowy: w ciemnych partiach obrazu oko wyłapuje bardzo drobne różnice jasności; w jasnych partiach ta sama drobna różnica jest niewidoczna, bo ginie w tle znacznie większego sygnału.</p>
+    <p>Scałkowanie tej zależności (Fechner, 1860) daje percepcję jasności w przybliżeniu proporcjonalną do logarytmu jasności fizycznej, nie do niej samej:</p>
+    <div class="formula">S ≈ k · ln(I / I₀)<span class="sub">S — jasność odczuwana (subiektywna); I — jasność fizyczna; I₀ — próg widzialności; ln — logarytm naturalny. To dokładnie ten sam kształt krzywej co gamma i log encoding z Rozdziału 5 — nie przypadkiem, tylko dlatego, że oba starają się przybliżyć tę samą krzywą percepcji</span></div>
+    <p>To jest właściwy powód, dla którego żaden format obrazu nie zapisuje jasności liniowo względem światła fizycznego. Gdyby 256 poziomów 8-bitowego pliku rozłożyć liniowo w fizycznej jasności od czerni do bieli, większość z nich trafiłaby w jasne partie, gdzie oko i tak nie odróżnia sąsiednich poziomów — a cienie, gdzie oko jest najczulsze, dostałyby ich zaledwie kilka, za mało, żeby uniknąć widocznych pasów (banding, Rozdział 12). Gamma i log (Rozdział 5) rozkładają te same 256 czy 1024 poziomy tak, żeby z grubsza odpowiadały krokom, które oko faktycznie rozróżnia — czyli w przybliżeniu równomiernie w skali logarytmicznej, nie liniowej.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Dynamic range</div>
+    <h2>Cztery różne zakresy, jedna wspólna jednostka</h2>
+    <p>Zanim mówić o zakresach liczbowo, potrzebna jest jednostka. W kolorystyce i fotografii tą jednostką jest <span class="term-amber">stop</span> — jeden stop to podwojenie (albo połowa) ilości światła. Stopy nie dodają się jak procenty, tylko jak potęgi dwójki: różnica dwóch stopów to nie „dwa razy większa różnica" niż jeden stop, tylko czterokrotna różnica jasności. Do tej jednostki wrócimy szczegółowo w Rozdziale 9 — tu wystarczy, żeby porównać cztery zakresy na wspólnej skali:</p>
+    <ul class="compact">
+      <li><strong>Scena rzeczywista</strong> — słoneczny plener z głębokim cieniem potrafi mieć zakres jasności rzędu 100&nbsp;000:1 i więcej (ok. 17 stopów) między najciemniejszym a najjaśniejszym punktem.</li>
+      <li><strong>Oko, w jednej chwili</strong> — bez poruszania źrenicą i bez czasu na photochemiczną adaptację, jednoczesny zakres to rzędu 10&nbsp;000:1 (ok. 13–14 stopów) — imponujące, ale wciąż mniej niż potrafi zaoferować sceneria z poprzedniego punktu.</li>
+      <li><strong>Oko, z czasem</strong> — pozwalając źrenicy i pigmentom w pełni się zaadaptować, całkowity zakres, jaki człowiek w ogóle obejmuje (od gwiazd po pełne słońce), sięga rzędu 1&nbsp;000&nbsp;000:1 i więcej (ok. 20 stopów) — ale nigdy naraz, tylko sekwencyjnie, jeden wycinek na raz.</li>
+      <li><strong>Ekran SDR</strong> — standardowy monitor czy telewizor ma kontrast rzędu 100:1 do 1000:1 (ok. 7–10 stopów), fizycznie ograniczony tym, ile światła emituje w bieli i ile przecieka w czerni. Ekrany HDR (PQ, HLG) poszerzają to znacząco, ale wciąż nie do poziomu jednoczesnego zakresu oka, o zakresie samej sceny nie wspominając.</li>
+    </ul>
+
+    <div class="diagram-frame">
+      <div class="diagram-hud"><span>Dynamic.range.compare</span><span>skala logarytmiczna, stopy</span></div>
+      <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg">
+        <line x1="180" y1="20" x2="180" y2="190" stroke="#2a2f38" stroke-width="1"/>
+        <text x="180" y="14" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#8b909b">0 stopów (punkt odniesienia)</text>
+
+        <g font-family="IBM Plex Sans" font-size="12.5" fill="#ecebe4">
+          <text x="20" y="44">Scena (plener)</text>
+          <rect x="180" y="32" width="560" height="18" rx="4" fill="#6e93be" fill-opacity="0.85"/>
+          <text x="748" y="45" font-family="IBM Plex Mono" font-size="10.5" fill="#8b909b" text-anchor="end">~17 stopów</text>
+
+          <text x="20" y="88">Oko, chwilowo</text>
+          <rect x="180" y="76" width="430" height="18" rx="4" fill="#4fc3c0" fill-opacity="0.9"/>
+          <text x="618" y="89" font-family="IBM Plex Mono" font-size="10.5" fill="#8b909b" text-anchor="end">~13-14 stopów</text>
+
+          <text x="20" y="132">Oko, z adaptacją</text>
+          <rect x="180" y="120" width="650" height="18" rx="4" fill="#4fc3c0" fill-opacity="0.4" stroke="#4fc3c0" stroke-dasharray="3 3"/>
+          <text x="180" y="152" font-family="IBM Plex Mono" font-size="10" fill="#4fc3c0">sekwencyjnie, nie naraz — ~20 stopów</text>
+
+          <text x="20" y="180">Ekran SDR</text>
+          <rect x="180" y="168" width="90" height="18" rx="4" fill="#e8a33d"/>
+          <text x="286" y="181" font-family="IBM Plex Mono" font-size="10.5" fill="#8b909b">~7-10 stopów</text>
+        </g>
+      </svg>
+      <div class="diagram-caption">Nawet chwilowy zakres oka przewyższa ekran SDR o kilka stopów — a scena potrafi przewyższać oko. Kompresję tej różnicy omawia tone mapping (raytracing-book, Dodatek E).</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Konsekwencje dla lookdevu</div>
+    <h2>Co z tego wynika, zanim dotkniesz shadera</h2>
+    <p>Ten rozdział nie pokazał jeszcze ani jednego node'a, ale ustawił trzy założenia, do których będzie wracać każdy kolejny rozdział:</p>
+    <ul class="compact">
+      <li>Skoro percepcja jest w przybliżeniu logarytmiczna, a matematyka światła (Lambert, GGX — raytracing-book, Rozdziały 5, 10–11) jest ściśle liniowa, między jednym a drugim musi istnieć jawne przejście. Rozdział 3 pokazuje dokładnie, co się psuje, kiedy tego przejścia zabraknie.</li>
+      <li>Skoro ekran obejmuje wyraźnie mniej niż oko, materiał oceniany na niekalibrowanym monitorze w niekontrolowanym oświetleniu pokoju to materiał oceniany na zgadywanie — stąd praktyka kalibrowanych środowisk przeglądowych (Dodatek I) i standaryzowanych rigów HDRI (Rozdział 21) zamiast „jak wygląda u mnie na ekranie".</li>
+      <li>Skoro wrażliwość oka zależy od jasności bazowej, ten sam grading (Część III) może wyglądać dobrze w cieniach i źle w światłach tego samego kadru — dlatego operatory takie jak kontrast czy printer lights (Rozdział 9) operują względem punktu odniesienia (pivot), nie jednym mnożnikiem na cały obraz.</li>
+    </ul>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Adaptacja (jasnościowa)</dt>
+      <dd>Zmiana czułości oka w odpowiedzi na poziom otaczającego światła — szybka (źrenica) i wolna (regeneracja pigmentów fotoreceptorów).</dd>
+      <dt>Widzenie fotopowe / skotopowe</dt>
+      <dd>Widzenie w warunkach dziennych (czopki, z kolorem) / widzenie w warunkach bardzo słabego światła (pręciki, bez koloru).</dd>
+      <dt>Prawo Webera-Fechnera</dt>
+      <dd>Najmniejsza zauważalna różnica bodźca jest proporcjonalna do wielkości bodźca bazowego, nie stała w liczbach bezwzględnych.</dd>
+      <dt>JND (just-noticeable difference)</dt>
+      <dd>Najmniejsza różnica jasności (lub innej wielkości), jaką przeciętny obserwator jest w stanie zauważyć.</dd>
+      <dt>Stop</dt>
+      <dd>Jednostka podwojenia/połowy ilości światła — pełne wprowadzenie w Rozdziale 9.</dd>
+      <dt>Dynamic range</dt>
+      <dd>Stosunek między najjaśniejszym a najciemniejszym poziomem, jaki dany system (oko, kamera, ekran) potrafi obsłużyć jednocześnie.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Wiesz już, dlaczego percepcja i zapis obrazu są nieliniowe. Następny rozdział pokazuje drugą stronę tego samego medalu: dlaczego wzory, które renderer faktycznie liczy — Lambert, Fresnel, GGX — muszą działać na liczbach <em>liniowych</em>, i co się dosłownie psuje na obrazie, kiedy ktoś wrzuci do nich liczby zakodowane gamma.</p>
   </div>
 
 <div class="site-nav chapter-nav">

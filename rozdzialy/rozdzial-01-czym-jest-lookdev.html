@@ -12,16 +12,126 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 01/24</span><span>CZĘŚĆ · I</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>ASSET · hero_prop</span><span>SHADER · brak</span><span>REFERENCE · 12 zdjęć</span><span>SIGN-OFF · brak</span>
   </div>
 
   <div class="eyebrow">Rozdział 1 / Fundamenty lookdevu</div>
   <h1>Czym jest lookdev</h1>
   <p class="subtitle">Modelka jest gotowa, rig działa, ale nikt jeszcze nie wie, jak to ma wyglądać — lookdev to dyscyplina, która odpowiada na to pytanie, zanim shot trafi do lightingu.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li><span class="term-amber">Lookdev</span> to osobny etap produkcji między modelingiem/texturingiem a lightingiem — nadanie assetowi finalnego, zatwierdzonego wyglądu, niezależnie od tego, w jakim shocie się później pojawi.</li>
+      <li>Artysta lookdev pracuje w izolacji: jeden asset, kontrolowane oświetlenie referencyjne (HDRI rig, turntable), z dala od konkretnej kamery i konkretnego shota — dokładnie po to, żeby look był poprawny wszędzie, nie tylko w jednym ujęciu, w którym akurat go sprawdzono.</li>
+      <li>Efektem lookdevu nie jest ładny obrazek, tylko <span class="term-cyan">opublikowany</span> zestaw shaderów i przypisanych tekstur, który lighting artist podepnie pod dowolny shot bez własnych poprawek materiałowych.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <p>Modelarka kończy hero_prop — stary aparat fotograficzny z korpusem, skórzanym uchwytem i mosiężnymi okuciami — i publikuje geometrię z rozłożonymi UV. W viewporcie widać jednolity szary domyślny materiał, taki sam na całym obiekcie. Reżyser ma w głowie konkretny obraz: znoszony, ale zadbany sprzęt, z widocznymi śladami użytkowania na okuciach i lekko wytartą skórą. Ten obraz nie istnieje jeszcze jako żadna liczba w żadnym shaderze. Zanim animator dostanie ten aparat do animacji, a lighting artist zacznie go oświetlać w konkretnym shocie, ktoś musi tę lukę domknąć — zamienić wizję na parametry materiału, które da się opublikować i wykorzystać wielokrotnie. To jest dokładnie praca lookdevu, i tej książki.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Definicja</div>
+    <h2>Lookdev jako proces, nie jako stanowisko</h2>
+    <p><span class="term-amber">Lookdev</span> (skrót od <em>look development</em>) to iteracyjny proces dopracowywania wyglądu pojedynczego assetu — materiałów, przypisanych tekstur, czasem ustawień fur/hair — w kontrolowanym środowisku referencyjnym, prowadzony aż do formalnego zatwierdzenia przez supervisora lub reżysera. Kluczowe jest słowo <em>proces</em>: w małych produkcjach robi to jedna osoba przy okazji innych zadań, w dużych studiach to osobny dział ze swoim pipeline'em, ale w obu przypadkach chodzi o to samo zadanie, nie o konkretny etat.</p>
+    <p>Warto od razu odróżnić lookdev od trzech sąsiednich dyscyplin, z którymi bywa mylony:</p>
+    <ul class="compact">
+      <li><span class="term-cyan">Shading</span> — bardziej techniczna strona tej samej pracy: budowa grafu node'ów, czasem pisanie własnych shaderów w OSL (raytracing-book, Dodatek AI). Lookdev to szerszy proces decyzyjny — <em>co</em> ma się zdarzyć wizualnie — który w praktyce realizuje się właśnie przez shading. Ta sama osoba zwykle robi jedno i drugie, ale to shading jest narzędziem, a lookdev celem.</li>
+      <li><span class="term-cyan">Texturing</span> — dostarcza mapy wejściowe: albedo, roughness, normal, czasem maski. Lookdev te mapy <em>konsumuje</em> i decyduje, jak wchodzą do shadera (Rozdział 11) — nie maluje ich od zera, choć bywa, że domalowuje drobne poprawki w Substance Painter czy Mari, jeśli coś nie gra dopiero pod właściwym oświetleniem.</li>
+      <li><span class="term-cyan">Lighting</span> — dzieje się <em>per shot</em>, w kontekście konkretnej sceny, kamery i chwili filmu. Lookdev dzieje się raz, dla assetu jako całości, i musi wyglądać poprawnie pod każdym oświetleniem, jakie lighting artist mu kiedykolwiek zafunduje — to dokładnie dlatego pracuje się w izolacji od jakiegokolwiek konkretnego shota (Rozdziały 21–22).</li>
+    </ul>
+    <p>Compositing zostaje w tym zestawieniu celowo pominięty — koryguje już wyrenderowany obraz, podczas gdy lookdev pracuje na etapie <em>przed</em> renderem, na samych właściwościach materiału. Grading, o którym mowa w Części III tej książki, dotyczy obrazu; lookdev dotyczy materiału, który dopiero ten obraz wygeneruje.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Workflow</div>
+    <h2>Pięć etapów, przez które przechodzi każdy asset</h2>
+    <p>Niezależnie od studia i renderera, proces lookdevu rozkłada się na te same pięć etapów. Różni się nazewnictwo i narzędzia, nie struktura:</p>
+    <ul class="compact">
+      <li><strong>Brief</strong> — supervisor lub art director przekazuje wytyczne: concept art, opis słowny, czasem gotowe zdjęcia referencyjne. Bez tego lookdev artist zgaduje, a zgadywanie kosztuje więcej rund poprawek niż jasny brief na starcie.</li>
+      <li><strong>Reference</strong> — zbieranie realnych materiałów referencyjnych nie jest krokiem opcjonalnym, tylko fundamentem całej reszty procesu. Bez referencji nie ma z czym porównać renderu, a „wygląda dobrze” bez punktu odniesienia to opinia, nie kryterium. Wracamy do tego w Rozdziałach 21–22, gdzie referencja staje się częścią samego procesu oceny looku.</li>
+      <li><strong>Build</strong> — budowa shading network pod kontrolowanym oświetleniem referencyjnym (HDRI rig, Rozdział 21), iteracyjne dostrajanie parametrów: roughness, IOR, kolor bazowy, warstwy (Rozdziały 13–20).</li>
+      <li><strong>Review</strong> — turntable albo seria playblastów pod kilkoma rigami świetlnymi (Rozdział 22), supervisor komentuje konkretne AOV-y i regiony obrazu (Dodatek U pokazuje, jak cryptomatte i light linking przyspieszają to o rząd wielkości).</li>
+      <li><strong>Sign-off</strong> — formalne zatwierdzenie i publikacja finalnej wersji (pipeline-book, Rozdział 7 — <em>publish</em> jako pojęcie ogólne; Dodatek W w tej książce pokazuje, jak wersjonowanie looku wygląda w praktyce). Od tego momentu każdy inny dział — lighting, comp, marketing — korzysta z tej wersji jako źródła prawdy, nie z pliku roboczego lookdev artysty.</li>
+    </ul>
+
+    <div class="diagram-frame">
+      <div class="diagram-hud"><span>Lookdev.workflow</span><span>Brief → Sign-off, z pętlą Review</span></div>
+      <svg viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrFwd" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#e8a33d"/>
+          </marker>
+          <marker id="arrBack" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#9c82d8"/>
+          </marker>
+        </defs>
+        <g font-family="IBM Plex Sans" font-size="13" fill="#ecebe4" text-anchor="middle">
+          <rect x="20" y="60" width="128" height="60" rx="8" fill="#20242c" stroke="#e8a33d" stroke-opacity="0.8"/>
+          <text x="84" y="86">Brief</text>
+          <text x="84" y="104" font-size="11" fill="#8b909b">wytyczne</text>
+
+          <rect x="182" y="60" width="128" height="60" rx="8" fill="#20242c" stroke="#e8a33d" stroke-opacity="0.8"/>
+          <text x="246" y="86">Reference</text>
+          <text x="246" y="104" font-size="11" fill="#8b909b">zdjęcia, materiały</text>
+
+          <rect x="344" y="60" width="128" height="60" rx="8" fill="#20242c" stroke="#e8a33d" stroke-opacity="0.8"/>
+          <text x="408" y="86">Build</text>
+          <text x="408" y="104" font-size="11" fill="#8b909b">shading pod HDRI</text>
+
+          <rect x="506" y="60" width="128" height="60" rx="8" fill="#20242c" stroke="#e8a33d" stroke-opacity="0.8"/>
+          <text x="570" y="86">Review</text>
+          <text x="570" y="104" font-size="11" fill="#8b909b">turntable, AOV</text>
+
+          <rect x="620" y="180" width="128" height="60" rx="8" fill="#20242c" stroke="#4fc3c0"/>
+          <text x="684" y="206">Sign-off</text>
+          <text x="684" y="224" font-size="11" fill="#8b909b">publikacja</text>
+        </g>
+        <line x1="148" y1="90" x2="180" y2="90" stroke="#e8a33d" stroke-width="2" marker-end="url(#arrFwd)"/>
+        <line x1="310" y1="90" x2="342" y2="90" stroke="#e8a33d" stroke-width="2" marker-end="url(#arrFwd)"/>
+        <line x1="472" y1="90" x2="504" y2="90" stroke="#e8a33d" stroke-width="2" marker-end="url(#arrFwd)"/>
+        <path d="M 634,110 C 660,150 684,150 684,178" fill="none" stroke="#4fc3c0" stroke-width="2" marker-end="url(#arrFwd)"/>
+        <path d="M 620,210 C 500,210 480,150 408,122" fill="none" stroke="#9c82d8" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrBack)"/>
+        <text x="500" y="248" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#9c82d8">Poprawki wracają do Build, nie do Reference</text>
+      </svg>
+      <div class="diagram-caption">Review niemal zawsze wraca do Build, nie do początku — referencja i brief zwykle nie zmieniają się w trakcie iteracji nad jednym assetem.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Izolacja</div>
+    <h2>Dlaczego to osobny etap, a nie część lightingu</h2>
+    <p>Najczęstsze pytanie, jakie słyszy początkujący techniczny artysta: skoro i tak trzeba oświetlić asset, żeby zobaczyć shader, to czemu nie robić tego od razu w docelowym shocie? Odpowiedź jest ekonomiczna, nie estetyczna. Materiał zbudowany i przetestowany pod jednym konkretnym oświetleniem może się rozpaść pod innym — specular, który wyglądał subtelnie pod miękkim światłem HDRI, może eksplodować pod ostrym kierunkowym światłem słonecznym; kolor bazowy, który pasował w cieniu, może okazać się o ton za ciepły w pełnym świetle. Jeśli taki błąd wyjdzie dopiero podczas lightingu pojedynczego shota, poprawka jest tania. Jeśli ten sam asset pojawia się w pięćdziesięciu shotach, a błąd wychodzi dopiero na trzydziestym, poprawka oznacza rerender wszystkiego, co już zostało zaakceptowane.</p>
+    <p>Dlatego lookdev celowo testuje materiał pod <em>kilkoma</em> skrajnie różnymi warunkami oświetleniowymi naraz — turntable pod kilkoma HDRI (Rozdział 21), obrót o pełne 360°, czasem dodatkowo pod jednym sztywnym rigiem trzypunktowym, który wyostrza dokładnie te błędy, które miękkie HDRI potrafi ukryć. To nie jest nadgorliwość — to test obciążeniowy materiału, zanim ktokolwiek postawi na nim animację, symulację włosów czy grafikę reklamową.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Dwa silniki</div>
+    <h2>Arnold i RenderMan — dlaczego oba, nie jeden</h2>
+    <p>Ta książka pokazuje każdy temat równolegle w Arnoldzie i w RenderManie, nie w jednym z nich z drugim jako przypisem. Powód jest branżowy, nie dydaktyczny: obaj renderery są dziś standardem produkcyjnym w różnych częściach przemysłu (Arnold m.in. u Sony Pictures Imageworks i we Framestore, RenderMan historycznie u Pixara i Weta Digital, dziś szerzej), a artysta techniczny, który zna tylko nazwy parametrów jednego z nich, jest bezradny, gdy trafia do studia korzystającego z drugiego. Pojęcia — energy conservation, warstwy Fresnela, GGX — są uniwersalne i wspólne (raytracing-book, Rozdziały 10–11); to, co się różni, to konkretne nazwy node'ów i parametrów, w które te pojęcia się ubierają: <code>aiStandardSurface</code> kontra <code>PxrSurface</code>, <code>aiColorCorrect</code> kontra <code>PxrColorCorrect</code>. Rozdział 13 pokazuje oba obok siebie po raz pierwszy; Dodatek N zbiera pełną tabelę odpowiedników parametr po parametrze.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Lookdev (look development)</dt>
+      <dd>Proces nadawania assetowi finalnego, zatwierdzonego wyglądu w izolacji od konkretnego shota.</dd>
+      <dt>Shading</dt>
+      <dd>Techniczna budowa grafu shaderów realizująca decyzje podjęte w procesie lookdevu.</dd>
+      <dt>Turntable</dt>
+      <dd>Obrót assetu o 360° pod ustalonym oświetleniem, standardowy format prezentacji i oceny looku — więcej w Rozdziale 22.</dd>
+      <dt>HDRI rig</dt>
+      <dd>Zestaw środowisk świetlnych (HDR panoram) używanych do testowania materiału pod różnymi warunkami — Rozdział 21.</dd>
+      <dt>Sign-off</dt>
+      <dd>Formalne zatwierdzenie wersji przez supervisora lub reżysera, po którym staje się ona źródłem prawdy dla innych działów.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Zanim zajmiemy się tym, <em>jak</em> budować materiał, warto zrozumieć, <em>dlaczego</em> cała ta książka tak bardzo przejmuje się liczbami, ekspozycją i krzywymi. Odpowiedź zaczyna się nie w rendererze, tylko w Twoim własnym oku — od różnicy między tym, jak ono widzi jasność, a tym, co potrafi pokazać ekran.</p>
   </div>
 
 <div class="site-nav chapter-nav">
