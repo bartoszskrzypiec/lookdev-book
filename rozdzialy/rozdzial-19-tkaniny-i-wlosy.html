@@ -20,16 +20,83 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 19/24</span><span>CZĘŚĆ · VI</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>WŁOS · R, TT, TRT osobno</span><span>ARNOLD · standard_hair, melanina</span><span>RENDERMAN · PxrMarschnerHair / LamaHairChiang</span>
   </div>
 
   <div class="eyebrow">Rozdział 19 / Materiały i detal</div>
   <h1>Tkaniny i włosy</h1>
   <p class="subtitle">Włos nie ma jednego koloru — ma dwa rozproszenia policzone osobno, a satyna świeci inaczej niż bawełna z powodu jednego parametru anizotropii.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>Pojedyncze włókno włosa potrzebuje <span class="term-amber">dwóch</span> osobnych zjawisk rozpraszania — odbicia od kutykuli i transmisji przez zabarwiony rdzeń — z tego samego strukturalnego powodu, dla którego skóra potrzebuje BSSRDF zamiast BRDF (Rozdziały 16–17), tylko w jednym wymiarze przekroju włókna, nie w trzech.</li>
+      <li>RenderMan wystawia <span class="term-cyan">dwa</span> shadery włosów naraz — starszy <code>PxrMarschnerHair</code> z dosłownymi nazwami R/TT/TRT/GLINTS, i nowszy <code>LamaHairChiang</code>, reparametryzację tego samego modelu pod bardziej artystyczne suwaki.</li>
+      <li>Poświata tkaniny (<span class="term-violet">sheen</span>/Fuzz z Rozdziału 15) i kierunkowy błysk satyny to <strong>dwa różne mechanizmy</strong>, nie jeden — sheen daje miękką poświatę na krawędzi, anizotropia z Rozdziału 18 daje ostry, kierunkowy pas.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Fizyka włosa</div>
+    <h2>Dlaczego jedno włókno potrzebuje dwóch rozproszeń</h2>
+    <p>Włókno włosa to cienki, w przybliżeniu walcowaty, częściowo przezroczysty dielektryk: kutykula (przezroczyste, nachodzące na siebie łuski) otacza zabarwiony rdzeń. Światło trafiające w włókno rozdziela się na fizycznie różne ścieżki — model Marschnera (2003), na którym opierają się oba renderery, nazywa je wprost:</p>
+    <ul class="compact">
+      <li><strong>R</strong> — odbicie wprost od zewnętrznej powierzchni kutykuli, zwykły event specularny, zależny od kąta.</li>
+      <li><strong>TT</strong> — światło załamuje się <em>do wnętrza</em> włókna, przechodzi przez zabarwiony rdzeń (tu głównie dzieje się selektywna absorpcja przez melaninę — to stąd bierze się kolor włosa) i wychodzi po drugiej stronie. Dlatego podświetlone od tyłu włosy „świecą" — TT jest najsilniejsze, gdy włos leży między kamerą a światłem.</li>
+      <li><strong>TRT</strong> — światło wchodzi, ale zamiast wyjść, odbija się wewnętrznie od dalszej ściany kutykuli, wraca przez włókno i wychodzi bliżej miejsca wejścia — daje drugi, przesunięty kątowo, zabarwiony błysk (klasyczny podwójny błysk zadbanych włosów).</li>
+    </ul>
+    <p>Zwykły BRDF potrafi opisać tylko odbicie od powierzchni — nie ma w nim miejsca na światło, które wnika w ośrodek, częściowo się w nim pochłania, i wraca gdzie indziej. To dokładnie ten sam strukturalny powód, dla którego skóra potrzebuje BSSRDF zamiast BRDF (Rozdziały 16–17) — różnica jest w geometrii problemu: rozpraszanie podpowierzchniowe skóry to dyfuzja po powierzchni trójwymiarowej, rozpraszanie włosa to transport wzdłuż jednowymiarowego przekroju włókna, stąd wyspecjalizowany model wielolobowy zamiast pełnego rozwiązania wolumetrycznego.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Arnold</div>
+    <h2>standard_hair: trzy loby, dwie drogi do koloru</h2>
+    <p><code>standard_hair</code> (następca starszego <code>hair</code>, inny model, parametry się nie przenoszą) wystawia R/TT/TRT jako trzy oddzielnie sterowalne loby: <strong>Specular</strong> (R — pierwotne odbicie), <strong>Specular2</strong> (TRT — drugi, barwny błysk), <strong>Transmission</strong> (TT — światło przechodzące przez włókno). Kolor da się ustawić dwiema drogami: wprost przez <code>base_color</code> (barwi wszystkie trzy loby jednakowo, jak farba/dye), albo fizycznie umotywowanym zestawem melaniny — <code>melanin</code> (0 = blond/białe, ~0,5 = brąz, 1 = czarne), <code>melanin_redness</code> (przesunięcie w stronę rudości) i <code>melanin_randomize</code> (losowa wariacja melaniny per włos, żeby uniknąć jednolitego, „plastikowego" koloru całej fryzury).</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: RenderMan</div>
+    <h2>Dwa shadery włosów naraz</h2>
+    <p>RenderMan ma w tej chwili dwa współistniejące shadery włosów, nie jeden. <strong>PxrMarschnerHair</strong> to bezpośrednia implementacja modelu Marschnera — dosłownie nazywa swoje parametry <code>specularGainR</code>, <code>specularGainTRT</code>, <code>specularGainTT</code>, nawet <code>specularGainGLINTS</code> (dodatkowy, wąski komponent połysku), plus <code>specularConeAngle</code> i <code>specularEccentricity</code> sterujące kształtem loba. Kolor nie siedzi bezpośrednio w tym node'zie — melanina trafia tam z osobnego node'a wzorca, <strong>PxrHairColor</strong>, którego wyjście zasila zarówno diffuseColor, jak i specularColor.</p>
+    <p><strong>LamaHairChiang</strong> to nowszy, dziś rekomendowany do produkcji shader, oparty na reparametryzacji modelu Marschnera autorstwa Chianga i in. (2016, Disney Animation) — ten sam fizyczny model R/TT/TRT, ale przełożony na suwaki, które łatwiej stroić na oko, z poprawioną zbieżnością i bardziej „rurkowatą" (tube-like) odpowiedzią specularną bliższą temu, jak faktycznie zachowuje się cylindryczne włókno.</p>
+    <div class="table-frame">
+      <table class="data-table">
+        <thead><tr><th>Pojęcie</th><th>Arnold (<code>standard_hair</code>)</th><th>RenderMan</th></tr></thead>
+        <tbody>
+          <tr><td>Odbicie od kutykuli (R)</td><td>Specular</td><td>PxrMarschnerHair: <code>specularGainR</code></td></tr>
+          <tr><td>Transmisja przez rdzeń (TT)</td><td>Transmission</td><td>PxrMarschnerHair: <code>specularGainTT</code></td></tr>
+          <tr><td>Drugi błysk (TRT)</td><td>Specular2</td><td>PxrMarschnerHair: <code>specularGainTRT</code></td></tr>
+          <tr><td>Kolor melaniny</td><td><code>melanin</code>, <code>melanin_redness</code></td><td>osobny node <code>PxrHairColor</code></td></tr>
+          <tr><td>Shader produkcyjny „dziś”</td><td><code>standard_hair</code></td><td><code>LamaHairChiang</code> (reparametryzacja Chianga 2016)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Tkaniny</div>
+    <h2>Sheen/Fuzz to nie to samo co anizotropia satyny</h2>
+    <p>Dwa różne zjawiska optyczne dają dwa różne „błyski" tkanin, i łatwo je pomylić. <span class="term-cyan">Sheen</span> (Arnold: <code>sheen</code>, <code>sheen_color</code>, <code>sheen_roughness</code>) i <strong>Fuzz</strong> (PxrSurface, Rozdział 15) to miękka, rozproszona poświata pod kątem, przybliżająca zbiorowy efekt mnóstwa mikroskopijnych włókien sterczących z powierzchni — aksamit i kurz na tkaninie to podręcznikowe przypadki. To przybliżenie na poziomie BRDF, nie symulacja rzeczywistej geometrii włókien.</p>
+    <p>Kierunkowy, ostry pas błysku na satynie czy jedwabiu to zupełnie inny mechanizm: anizotropowy specular z Rozdziału 18, dokładnie ten sam <code>specular_anisotropy</code>/Anisotropy sterowany mapą przepływu tangenty, tylko podążającą za kierunkiem splotu tkaniny (osnowa/wątek) zamiast za rysami szczotkowania metalu. Bawełna zwykle nie ma żadnego z tych dwóch efektów w wyraźnej formie — pozostaje blisko czystego diffuse, może z odrobiną sheen od drobnych, sterczących włókien na powierzchni, bez śladu kierunkowej anizotropii, bo nie ma regularnego splotu, który mógłby ją wywołać.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>R / TT / TRT</dt>
+      <dd>Trzy ścieżki światła w modelu Marschnera dla włosa: odbicie od kutykuli, transmisja przez rdzeń, wewnętrzne odbicie i powrót.</dd>
+      <dt>Melanina</dt>
+      <dd>Fizycznie umotywowany parametr koloru włosa — zamiast wprost barwić, steruje ilością pigmentu pochłaniającego światło w rdzeniu.</dd>
+      <dt>Model Chianga (2016)</dt>
+      <dd>Reparametryzacja modelu Marschnera pod bardziej artystyczne, intuicyjne suwaki — podstawa <code>LamaHairChiang</code>.</dd>
+      <dt>Sheen / Fuzz</dt>
+      <dd>Miękka, rozproszona poświata pod kątem, przybliżenie mikroskopijnych włókien — nie to samo co kierunkowa anizotropia.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Włosy i tkaniny to detal, który w dużej mierze żyje w shaderze. Rozdział 20 przechodzi do detalu, który żyje w geometrii — displacement liczony w czasie renderu i budżet pamięci, który potrafi pochłonąć więcej niż cała reszta shota.</p>
   </div>
 
 <div class="site-nav chapter-nav">

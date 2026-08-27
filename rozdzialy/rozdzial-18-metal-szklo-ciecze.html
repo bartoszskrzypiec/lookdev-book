@@ -20,16 +20,63 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 18/24</span><span>CZĘŚĆ · VI</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>METAL · anizotropia, 2 roughness</span><span>SZKŁO · grubość zmienia Extinction</span><span>CIECZE · geometria, nie shader</span>
   </div>
 
   <div class="eyebrow">Rozdział 18 / Materiały i detal</div>
   <h1>Metal, szkło, ciecze</h1>
   <p class="subtitle">Szczotkowany metal, mokre szkło i woda w szklance łamią to samo założenie na trzy różne sposoby — każde ma swój własny parametr, o którym łatwo zapomnieć.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li><span class="term-amber">Szczotkowany metal</span> potrzebuje dwóch wartości roughness, nie jednej — kierunek rys szczotkowania steruje elipsą błysku, nie tylko jego wielkością.</li>
+      <li><span class="term-cyan">Szkło</span> tej samej barwy w cienkiej i grubej wersji potrzebuje różnych wartości absorpcji, żeby wyglądać jak ten sam materiał — jeden parametr Arnolda robił to automatycznie, PxrSurface każe przeliczyć ręcznie (Rozdział 15).</li>
+      <li><span class="term-violet">Ciecze</span> najczęściej łamią założenia nie przez shader, tylko przez geometrię — meniskus, zniekształcenie tła przez załamanie, drobne fale na powierzchni. Sam materiał wody bywa najprostszym elementem całej sceny.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Metal z bliska</div>
+    <h2>Szczotkowany metal: anizotropia to kierunek, nie tylko wielkość</h2>
+    <p>GGX z jednym roughness (raytracing-book, Rozdział 11) zakłada, że mikrofasetki są rozrzucone tak samo we wszystkie strony. Szczotkowana blacha, satyna, płyta winylowa mają fasetki wyrównane wzdłuż konkretnego kierunku — gładsze wzdłuż rys szczotkowania, chropowate w poprzek. Rozkład D dostaje wtedy dwie niezależne wartości roughness zamiast jednej, po jednej na oś lokalnej ramki stycznej (raytracing-book, Dodatek A):</p>
+    <div class="formula">D(H) = 1 / ( π·αx·αy·( (H·T/αx)² + (H·B/αy)² + (H·N)² )² )<span class="sub">αx, αy — roughness wzdłuż tangenty T i bitangenty B; αx=αy sprowadza wzór z powrotem do izotropowego GGX</span></div>
+    <a class="inline-deeper" href="https://bartoszskrzypiec.github.io/raytracing-book/dodatki/dodatek-a-materialy.html">↓ raytracing-book, Dodatek A — pełne wyprowadzenie anizotropowego GGX</a>
+    <p>Arnold steruje tym parą <code>specular_anisotropy</code> (0–1, ile rozciągnięcia) i <code>specular_rotation</code> (0–1, mapowane na 0–360°, kierunek). PxrSurface ma odpowiadający zakres −1…1 (ujemna połowa to te same elipsy obrócone o 90°), ale <strong>nie ma</strong> odpowiednika rotacji jako liczby — kierunek steruje wyłącznie <strong>Shading Tangent</strong>, wejście przyjmujące tylko połączenie, nie wartość. Praktyczna konsekwencja: kierunek rys szczotkowania trzeba dostarczyć mapą przepływu tangenty (tangent-flow map), zgodną z rzeczywistym kierunkiem obróbki powierzchni — bez niej elipsa błysku wskazuje w przypadkowym kierunku wyznaczonym domyślną parametryzacją UV, nie tam, gdzie faktycznie biegną rysy.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Szkło z bliska</div>
+    <h2>Ta sama butelka, dwie grubości, dwa Extinction</h2>
+    <p>Rozdział 15 pokazał mechanizm: kolor transmisji przestaje być prostym barwieniem, gdy ośrodek ma niezerową głębokość absorpcji — staje się barwą, jaką przyjmuje białe światło po przebyciu tego dystansu (prawo Beera-Lamberta, raytracing-book Rozdział 18). Tu widać konkretną konsekwencję: ta sama butelka zielonego szkła, cienka przy szyjce i gruba przy podstawie, w Arnoldzie wygląda spójnie z jednym <code>transmission_depth</code>, bo Arnold sam przelicza absorpcję do faktycznej grubości promienia w danym miejscu. W PxrSurface Extinction w Interior jest jedną, stałą wartością — dobraną pod konkretną grubość. Cienka szyjka i gruba podstawa tej samej butelki, żeby wyglądać jak ten sam materiał, wymagają w PxrSurface albo dwóch różnych wartości Extinction na dwóch shaderach, albo świadomego kompromisu na jednej wartości pośredniej.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Ciecze</div>
+    <h2>Kiedy materiał to nie shader, tylko geometria</h2>
+    <p>Woda w szklance to zwykle najprostszy shader w całej scenie — dielektryk o IOR≈1,33, praktycznie zerowy roughness, bez SSS, bez coatu. To, co sprawia, że wygląda przekonująco albo nie, prawie nigdy nie leży w parametrach shadera. Trzy miejsca, gdzie faktycznie trzeba popracować:</p>
+    <p><strong>Meniskus.</strong> Powierzchnia cieczy przy ściance naczynia nie jest płaska — napięcie powierzchniowe podciąga ją w górę albo w dół, zależnie od zwilżalności. Płaska powierzchnia wody bez tego zagięcia od razu czyta się jako fałszywa, nawet jeśli widz nie potrafi nazwać dlaczego — to szczegół geometrii, nie materiału.</p>
+    <p><strong>Zniekształcenie tła.</strong> Przekonującość szkła z wodą bierze się głównie z tego, jak bardzo załamuje to, co jest za nią — prosty test: czy tekst czy wzór za szklanką jest widocznie, wiarygodnie zniekształcony przez krzywiznę cieczy i naczynia razem. Jeśli scena review'owana jest pod HDRI bez wyraźnych krawędzi w tle (Rozdział 21), transmisja może wyglądać poprawnie, mimo że IOR jest źle dobrany — dopiero kontrastowe tło ujawnia błąd.</p>
+    <p><strong>Detal powierzchni.</strong> Nieruchoma, idealnie gładka ciecz w kadrze z bliska wygląda jak żywica, nie jak płyn — drobna normal map z falami albo napięciem powierzchniowym przy krawędziach kropli robi więcej dla wiarygodności niż jakikolwiek suwak w shaderze. Krople na powierzchni to ten sam problem co pieprzyki z Rozdziału 17: potrzebują nieregularnego rozkładu rozmiaru i kształtu (zwykle sterowanego geometrią przyczepności albo maską proceduralną), nie jednolitej tekstury powtarzanej bez zmian.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Anizotropia (αx, αy)</dt>
+      <dd>Dwie niezależne wartości roughness wzdłuż tangenty i bitangenty zamiast jednej — rozciąga błysk w konkretnym kierunku.</dd>
+      <dt>Shading Tangent</dt>
+      <dd>PxrSurface: wejście-połączenie sterujące kierunkiem anizotropii, bez odpowiednika prostego suwaka rotacji.</dd>
+      <dt>Extinction a grubość</dt>
+      <dd>Absorpcja światła w ośrodku zależy od przebytego dystansu — ta sama wartość Extinction daje różny kolor przy różnej grubości.</dd>
+      <dt>Meniskus</dt>
+      <dd>Zakrzywienie powierzchni cieczy przy ściance naczynia, efekt napięcia powierzchniowego.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Ten rozdział zajął się materiałami sztywnymi. Rozdział 19 przechodzi do włókien — włos ma dwa oddzielnie liczone rozproszenia, a tkaniny sterują poświatą na krawędziach zupełnie innym parametrem niż zwykły specular.</p>
   </div>
 
 <div class="site-nav chapter-nav">

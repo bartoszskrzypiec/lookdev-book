@@ -20,16 +20,83 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 20/24</span><span>CZĘŚĆ · VI</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>ARNOLD · disp_padding, subdiv_iterations</span><span>RENDERMAN · displacement bound</span><span>BUDŻET · +1 iteracja ≈ ×4 poligony</span>
   </div>
 
   <div class="eyebrow">Rozdział 20 / Materiały i detal</div>
   <h1>Displacement i detal geometryczny</h1>
   <p class="subtitle">Geometria, której nie ma w pliku sceny, może pochłonąć więcej pamięci niż cała reszta shota razem wzięta — i jedno pole trzeba wypełnić ręcznie, bo żaden preset go nie zgadnie.</p>
 
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>Displacement generuje geometrię <span class="term-amber">w czasie renderu</span> z mapy wysokości — obiekt w pliku sceny jest gładki, detal powstaje dopiero na etapie renderowania.</li>
+      <li>Renderer musi wiedzieć <em>z góry</em>, jak daleko geometria może się przesunąć, żeby poprawnie policzyć bounding box — pole na tę wartość (<code>disp_padding</code> w Arnoldzie, displacement bound w RenderManie) nikt nie zgadnie za Ciebie, bo zależy od konkretnej mapy i jej gainu.</li>
+      <li>Każda kolejna iteracja subdivision <span class="term-cyan">poczwórnia</span> liczbę poligonów — dlatego adaptive subdivision (gęściej blisko kamery, rzadziej daleko) to nie luksus, tylko konieczność przy hero close-upach.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Displacement</div>
+    <h2>Geometria, której nie ma w pliku sceny</h2>
+    <p>Displacement przesuwa faktyczne wierzchołki siatki wzdłuż normalnej (albo w dowolnym kierunku, przy wektorowym displacement) na podstawie mapy wysokości, obliczane dopiero podczas dicingu/tesselacji w renderze — nie ma tej geometrii nigdzie w pliku sceny. W Arnoldzie steruje tym <code>disp_map</code> (podłączony shader/tekstura), <code>disp_height</code> (mnożnik skali) i mniej oczywisty, ale kluczowy <code>disp_zero_value</code> — wartość wejściowa traktowana jako „brak przesunięcia". Mapa wysokości wyśrodkowana na szarości 0,5 (typowa dla detalu rzeźbionego, który ma zarówno wypychać, jak i wgniatać powierzchnię) potrzebuje <code>disp_zero_value = 0,5</code>; zostawiona na domyślnym zerze, cała mapa czyta się jako przesunięcie tylko w jedną stronę.</p>
+    <p>Osobny mechanizm, <code>disp_autobump</code>, zamienia wysokoczęstotliwościowy detal mapy na perturbację normalnych (bump) zamiast prawdziwej geometrii — pozwala uniknąć podkręcania <code>subdiv_iterations</code> tylko po to, żeby rozdzielić drobny detal, którego oko i tak nie odróżni od bumpa na sylwetce.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Pole, którego nie zgadniesz</div>
+    <h2>Padding / displacement bound: dlaczego trzeba je wypełnić ręcznie</h2>
+    <p>Ważna, łatwa do przeoczenia decoupling w Arnoldzie: <code>disp_height</code> (skala przesunięcia) <strong>nie zmienia</strong> bounding boxa obiektu w czasie renderu — robi to wyłącznie osobny parametr, <code>disp_padding</code>, rozszerzający bounding box o zadeklarowany margines. Za mały padding obcina displacement na krawędzi bounding boxa — detal znika albo zostaje ucięty tam, gdzie przesunięcie wykracza poza margines; za duży marnuje pamięć na strukturę przyspieszającą i spowalnia render bez żadnej korzyści.</p>
+    <p>RenderMan wymaga tego samego wprost jako atrybutu obiektu — <strong>Displacement Bound</strong>, promień (sferyczny margines), o jaki może się przesunąć dowolny punkt powierzchni. Domyślna wartość to zero, co w praktyce znaczy: <strong>displacement jest wyłączony/ucięty, dopóki nie ustawisz bound ręcznie</strong> — nawet z podłączonym, poprawnie działającym shaderem displacement.</p>
+    <p>To jest dokładnie pole, którego żaden preset nie zgadnie: właściwa wartość zależy od amplitudy konkretnej mapy pomnożonej przez gain shadera — tylko Ty (albo pomiar samej mapy) to wiesz. Zbyt mały margines po obu stronach silnika daje ten sam objaw: detal wygląda spłaszczony albo ucięty, mimo że sam shader displacement jest ustawiony poprawnie — pierwsze miejsce do sprawdzenia, zanim zaczniesz grzebać w mapie czy w gainie.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Subdivision</div>
+    <h2>Dlaczego +1 iteracja to nie +25%, tylko ×4</h2>
+    <p><code>subdiv_type</code> w Arnoldzie wybiera między <code>catclark</code> (Catmull-Clark, wygładza), <code>linear</code> (wstawia wierzchołki bez wygładzania — przydatne przy displacement na twardej powierzchni, gdzie wygładzanie bazowej siatki jest niepożądane) i <code>none</code>. Dokumentacja Arnolda podaje wprost fakt wart zapamiętania na pamięć: <strong>każda kolejna iteracja subdivision poczwórnia liczbę poligonów</strong>. Przejście z 2 na 3 iteracje nie dokłada 50% detalu — dokłada trzykrotność tego, co już było, licząc od bazowej siatki. Ten sam mechanizm dotyczy koncepcyjnie RenderMana — Catmull-Clark dzieli każdą fasetkę na cztery przy każdym kroku ku powierzchni granicznej, mimo że RenderMan nie wystawia artyście „liczby iteracji" jako osobnego suwaka (patrz niżej).</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Adaptive</div>
+    <h2>Gęściej tam, gdzie patrzy kamera</h2>
+    <p>Arnold: <code>subdiv_adaptive_error</code> ustala maksymalne dopuszczalne odchylenie od prawdziwej powierzchni granicznej; <code>subdiv_adaptive_metric</code> wybiera, jak to odchylenie mierzyć (<code>edge_length</code> — długość krawędzi, <code>flatness</code> — odchylenie od płaskości, albo <code>auto</code>); <code>subdiv_adaptive_space</code> decyduje, czy błąd liczyć w przestrzeni rastra (piksele ekranu — gęściej blisko kamery i na sylwetkach, rzadziej daleko) czy w przestrzeni obiektu (stała gęstość niezależna od odległości od kamery — potrzebne przy instancjonowaniu, gdzie kopie tego samego obiektu leżą w różnych odległościach). Ustawienie <code>subdiv_adaptive_error</code> na zero wyłącza adaptacyjność i sprowadza subdivision z powrotem do stałej liczby iteracji.</p>
+    <p>RenderMan podchodzi do tego inaczej konceptualnie — nie ma parametru „liczba iteracji" wystawionego artyście w ogóle. Dicing (tesselacja) jest domyślnie adaptacyjny wprost do docelowego rozmiaru mikropoligonu w przestrzeni rastra (rzędu 1 piksela), z opcją przełączenia na tesselację w jednostkach świata zamiast pikseli ekranu (przydatne przy deformujących się symulacjach albo gdy kamera zooomuje/oddala się w trakcie ujęcia, żeby uniknąć zmiany gęstości siatki w połowie shota).</p>
+    <div class="table-frame">
+      <table class="data-table">
+        <thead><tr><th>Pojęcie</th><th>Arnold</th><th>RenderMan</th></tr></thead>
+        <tbody>
+          <tr><td>Margines na displacement</td><td><code>disp_padding</code></td><td>Displacement Bound</td></tr>
+          <tr><td>Domyślna wartość marginesu</td><td>0 — trzeba ustawić</td><td>0 — displacement wyłączony/ucięty bez ustawienia</td></tr>
+          <tr><td>Sterowanie gęstością</td><td><code>subdiv_iterations</code> + adaptive error</td><td>dicing do docelowego rozmiaru mikropoligonu (domyślnie ~1px)</td></tr>
+          <tr><td>Adaptacyjność</td><td>opcjonalna, jawnie włączana</td><td>domyślna, wbudowana w mechanizm dicingu</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+    <div class="panel-label">Z praktyki</div>
+    <p>Rozsądny punkt startowy na hero close-upach to niski, bezpieczny limit iteracji (żeby budżet pamięci nie eksplodował, gdyby coś poszło nie tak) plus ciasny próg adaptive error robiący faktyczną robotę — nie jedna wysoka, stała liczba iteracji zastosowana wszędzie. Ta kolejność priorytetów wynika wprost z mechanizmu opisanego wyżej: adaptive error dogęszcza dokładnie tam, gdzie trzeba (blisko kamery, na sylwetce), więc twardy limit iteracji jest tylko siatką bezpieczeństwa, nie głównym pokrętłem.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Displacement bound / padding</dt>
+      <dd>Zadeklarowany margines, o jaki geometria może się przesunąć — musi być ustawiony ręcznie, zależy od amplitudy mapy i gainu shadera.</dd>
+      <dt>disp_zero_value</dt>
+      <dd>Wartość wejściowa mapy traktowana jako brak przesunięcia — istotne przy mapach wyśrodkowanych na szarości.</dd>
+      <dt>Adaptive subdivision</dt>
+      <dd>Gęstość tesselacji zależna od odległości od kamery/sylwetki, zamiast stałej liczby iteracji wszędzie.</dd>
+      <dt>Dicing</dt>
+      <dd>RenderMan: tesselacja powierzchni granicznej do mikropoligonów o docelowym rozmiarze, domyślnie w przestrzeni rastra.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Materiały i geometria są gotowe. Rozdział 21 zamyka Część VI i otwiera ostatnią: HDRI i skalibrowane środowisko oświetleniowe, pod którym w ogóle da się cokolwiek ocenić.</p>
   </div>
 
 <div class="site-nav chapter-nav">

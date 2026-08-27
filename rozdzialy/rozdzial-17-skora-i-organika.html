@@ -20,16 +20,111 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 17/24</span><span>CZĘŚĆ · VI</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>SKÓRA · stos warstw, nie 1 materiał</span><span>MODEL · Jensen Dipole → Path Traced</span><span>DETAL · pieprzyki, pory, nieregularność</span>
   </div>
 
   <div class="eyebrow">Rozdział 17 / Materiały i detal</div>
   <h1>Skóra i organika</h1>
   <p class="subtitle">Skóra nie jest jednym materiałem — to stos warstw o różnej głębokości rozpraszania i innym specularu, a pieprzyki psują iluzję, jeśli są zbyt regularne.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>Skóra to <span class="term-amber">stos</span>: cienka warstwa tłuszczu/potu z własnym, ostrym specularem (Rozdział 15), naskórek i skóra właściwa o różnej głębokości rozpraszania — nie jeden materiał z jednym SSS.</li>
+      <li>PxrSurface domyślnie startuje z <span class="term-cyan">najsłabszym</span> modelem SSS (Jensen Dipole), Arnold domyślnie z <span class="term-cyan">najmocniejszym</span> (<code>randomwalk</code>) — port materiału bez świadomej zmiany modelu daje skórę gładką na policzku, gumowatą na uszach.</li>
+      <li>Detal — pieprzyki, pory, drobne nierówności — musi być <span class="term-violet">nieregularny</span>, inaczej oko natychmiast wyłapuje wzorzec i cała iluzja organiki się rozsypuje.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Stos, nie materiał</div>
+    <h2>Skóra to trzy warstwy naraz</h2>
+    <p>Traktowanie skóry jako jednego <code>subsurface_radius</code> z Rozdziału 16 to dobry start, ale realna skóra to stos: cienka, zmienna warstwa tłuszczu i potu na wierzchu (coat z Rozdziału 15 — ostry, niski-roughness specular, niezależny od reszty), naskórek (płytkie rozpraszanie, krótki MFP), skóra właściwa pod spodem (głębsze rozpraszanie, tam mieszka czerwień hemoglobiny). Jeden płaski SSS bez osobnego coatu wygląda matowo i plastikowo — brakuje mu tego cienkiego, oddzielnego błysku, który realna skóra ma zawsze, niezależnie od tego, jak sucha wygląda w skali makro.</p>
+    <p>Domyślne wartości obu shaderów kryją w sobie fakt, który warto znać świadomie: <code>subsurface_radius</code> Arnolda domyślnie jest neutralne, (1; 1; 1) — świeży materiał SSS w Arnoldzie wygląda jak neutralny wosk. Mean Free Path Color PxrSurface domyślnie to (0,851; 0,557; 0,395) — wyraźnie ciepłe, czerwonawe, celowo dobrane pod skórę. Świeży materiał SSS w PxrSurface od razu czyta się jako ciało, zanim cokolwiek dostroisz. Konsekwencja przy migracji: przeniesienie promienia (1,1,1) z Arnolda do PxrSurface <em>usuwa</em> to wbudowane zaczerwienienie i materiał traci ciepło, którego nikt świadomie nie wyłączył.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Model rozpraszania</div>
+    <h2>Sześć modeli w PxrSurface, dwa w Arnoldzie</h2>
+    <p>PxrSurface daje wybór modelu transportu światła pod powierzchnią, wystawiony wprost jako <strong>Subsurface Model</strong> — sześć opcji, nie dwie:</p>
+    <div class="table-frame">
+      <table class="data-table">
+        <thead><tr><th>Model PxrSurface</th><th>Co liczy</th><th>Najbliższy odpowiednik Arnolda</th></tr></thead>
+        <tbody>
+          <tr><td>Jensen Dipole <em>(domyślny)</em></td><td>tylko dyfuzja, najstarsze, najtańsze przybliżenie</td><td><code>diffusion</code></td></tr>
+          <tr><td>d'Eon Better Dipole</td><td>dyfuzja, lepszy zanik niż Jensen</td><td><code>diffusion</code></td></tr>
+          <tr><td>Burley Normalized</td><td>dyfuzja <strong>i</strong> pojedyncze rozproszenie</td><td>między <code>diffusion</code> a <code>randomwalk</code></td></tr>
+          <tr><td>Multiple Mean Free Paths</td><td>trzy niezależne zasięgi rozpraszania naraz</td><td><em>brak odpowiednika</em></td></tr>
+          <tr><td>Exponential Path Traced</td><td>faktyczne śledzenie fotonu wewnątrz materiału</td><td><code>randomwalk</code></td></tr>
+          <tr><td>Non-Exponential Path Traced</td><td>to samo, inny rozkład dystansu — lepszy na gęstych mediach</td><td><code>randomwalk_v2</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption">Krytyczne niedopasowanie domyślnych wartości: Arnold od lat domyślnie liczy <code>randomwalk</code> — niemal każdy istniejący materiał SSS w Arnoldzie powstał właśnie na nim. PxrSurface domyślnie startuje z Jensen Dipole, najsłabszym przybliżeniem z całej listy.</p>
+    <p>Jeśli materiał w Arnoldzie używał <code>randomwalk</code>, uczciwym odpowiednikiem w PxrSurface jest model Path Traced, nie dipol, od którego PxrSurface zaczyna. Przybliżenia dipolowe trzymają się dobrze na grubych, zaokrąglonych formach i zawodzą dokładnie tam, gdzie geometria robi się cienka — uszy, nozdrza, palce, powieki (dokładnie ta sama granica cienkiej geometrii, o której mówi raytracing-book, Dodatek AG). To wyjaśnia często spotykany objaw: „na policzku wygląda dobrze, na uszach gumowato" — to nie kwestia strojenia koloru, tylko wybranego modelu.</p>
+    <p>Zastrzeżenie działające w drugą stronę: Mean Free Path Distance jest zaprojektowany pod modele dipolowe. W trybie Path Traced dokumentacja RenderMana odradza poleganie na nim — lepiej sterować wyglądem przez Subsurface Color i Mean Free Path Color. Zmiana modelu zmienia więc nie tylko jakość, ale i to, <em>które</em> parametry w ogóle mają znaczenie.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Multiple Mean Free Paths</div>
+    <h2>Trójwarstwowy model skóry bez odpowiednika w Arnoldzie</h2>
+    <p>Zamiast jednego MFP barwionego per kanał, tryb Multiple Mean Free Paths daje <strong>trzy pełne zestawy</strong> naraz — krótki, średni i długi zasięg, każdy z własnym gain, kolorem i dystansem:</p>
+    <div class="table-frame">
+      <table class="data-table">
+        <thead><tr><th>Zasięg</th><th>Kolor domyślny</th><th class="num">Dystans domyślny</th></tr></thead>
+        <tbody>
+          <tr><td>Krótki</td><td>prawie biały (0,9; 0,9; 0,9)</td><td class="num">5</td></tr>
+          <tr><td>Średni</td><td>ciepły, przełamany biały (0,830; 0,791; 0,753)</td><td class="num">10</td></tr>
+          <tr><td>Długi</td><td>czysta czerwień (0,8; 0; 0)</td><td class="num">20</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>To gotowy, trójwarstwowy model skóry: blada, ciasna warstwa tuż pod powierzchnią, ciepła warstwa środkowa, głęboka czerwona warstwa krwi cztery razy dalej niż pierwsza. Dwie pułapki przy przełączeniu na ten tryb: Mean Free Path Color przestaje działać całkowicie (zastąpiony kolorami per-zasięg), a Subsurface Color zaczyna oznaczać wyłącznie kolor zasięgu <em>średniego</em>, nie całej warstwy — przeniesiony wprost z Arnolda kolor nagle robi znacznie węższą robotę, niż robił wcześniej.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Single Scatter</div>
+    <h2>Ostry, kierunkowy poblask przez cienki materiał</h2>
+    <p>Single Scatter to w PxrSurface osobny lob, nie część Subsurface — własny Gain, kolor, MFP, własny IOR (1,3) i kontrola rozmycia. Pojedyncze rozproszenie to światło, które odbija się raz i wychodzi — daje ostry, kierunkowy poblask przez cienki, gęsty materiał (dłoń przyłożona do latarki, plasterek nefrytu, świeca pod światłem), w odróżnieniu od miękkiego, wszechkierunkowego poblasku dyfuzji. Arnoldowy <code>randomwalk</code> ma to policzone automatycznie, jako część tej samej trasy promienia — nie ma osobnego przełącznika do włączenia czy zapomnienia. W PxrSurface zależy to od wybranego modelu: dipol (Jensen/d'Eon) liczy tylko dyfuzję, więc Single Scatter trzeba dołożyć ręcznie, jeśli materiał w Arnoldzie miał widoczny charakter pojedynczego rozproszenia; Burley Normalized ma je już wliczone; modele Path Traced też je już liczą — dokładanie Single Scatter na wierzch modelu Path Traced <strong>podwaja</strong> to samo światło.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Detal</div>
+    <h2>Pieprzyki i pory: dlaczego regularność zabija iluzję</h2>
+    <p>Skóra ma detal w dwóch różnych skalach, i oba muszą być nieregularne, żeby oko ich nie złapało jako wzorca. Pory to detal mikro — zwykle bump albo displacement (Rozdział 20) z teksturą szumu, nie geometria modelowana ręcznie; kluczowe jest zróżnicowanie gęstości i głębokości między obszarami (T-strefa twarzy ma inne pory niż policzki), nie jednolita siatka. Pieprzyki i przebarwienia to detal makro — jeśli są rozłożone regularnie (siatka, powtarzający się wzór z teksturowej płytki) albo mają identyczny rozmiar i kolor, oko wyłapuje powtórzenie w ułamku sekundy, nawet jeśli widz nie potrafi nazwać, co konkretnie go razi. Praktyczna technika: losowa wariacja skali, koloru i gęstości per instancję (maska proceduralna albo ręcznie malowana, nigdy jedna płytka powielona bez zmian), z rzadkimi, większymi „akcentami" rozbijającymi jednostajność drobnego szumu — dokładnie ta sama zasada nieregularności, która w Rozdziale 19 wraca przy rozkładzie włosów.</p>
+  </div>
+
+  <div class="worked">
+    <div class="wlabel">Przepis: migracja materiału skóry z Arnolda do PxrSurface, krok po kroku</div>
+    <div class="step"><span class="k">1.</span> Sprawdź skalę sceny, ustaw Unit Length zgodnie z nią — to mnoży wszystko inne, rób to pierwsze (Rozdział 16)</div>
+    <div class="step"><span class="k">2.</span> Dopasuj Subsurface Model do modelu z Arnolda <em>zanim</em> zaczniesz wpisywać liczby — <code>randomwalk</code> → Path Traced, <code>diffusion</code> → dipol</div>
+    <div class="step"><span class="k">3.</span> Przenieś promień → Mean Free Path Color, skalę → Mean Free Path Distance; w trybie Path Traced licz się bardziej z kolorami niż z dystansem</div>
+    <div class="step"><span class="k">4.</span> Skopiuj Subsurface Color i Gain wprost</div>
+    <div class="step"><span class="k">5.</span> Zapłać rachunek za energię — obniż Diffuse Gain w miarę wzrostu Subsurface Gain (Rozdział 13)</div>
+    <div class="step"><span class="k">6.</span> Oceniaj pod kontrę — z cienkim fragmentem w kadrze (ucho, nozdrze, palec); światło z przodu ukrywa większość błędów</div>
+    <div class="step"><span class="k">7.</span> Dopiero teraz rozważ Single Scatter, i tylko na modelu dipolowym</div>
+    <div class="result">Kolejność ma znaczenie: model przed liczbami, energia przed kolorem, test pod kontrę przed uznaniem materiału za gotowy.</div>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Model dipolowy (Jensen, d'Eon)</dt>
+      <dd>Najtańsze przybliżenie SSS, oparte na gładkiej dyfuzji; zawodzi na cienkiej geometrii.</dd>
+      <dt>Model Path Traced</dt>
+      <dd>Faktyczne śledzenie fotonu wewnątrz materiału — odpowiednik Arnoldowego <code>randomwalk</code>.</dd>
+      <dt>Multiple Mean Free Paths</dt>
+      <dd>Tryb PxrSurface z trzema niezależnymi zasięgami rozpraszania (krótki/średni/długi) naraz — model skóry bez odpowiednika w Arnoldzie.</dd>
+      <dt>Single Scatter</dt>
+      <dd>Osobny lob światła rozproszonego dokładnie raz — ostry, kierunkowy poblask przez cienki materiał.</dd>
+      <dt>Test pod kontrę (backlit test)</dt>
+      <dd>Ocena materiału SSS z cienkim fragmentem geometrii oświetlonym od tyłu — ujawnia błędy modelu niewidoczne przy świetle z przodu.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Skóra była materiałem organicznym. Rozdział 18 wraca do materiałów twardych — metal z bliska, szkło i ciecze — i pokazuje, że anizotropia, transmisja i grubość ośrodka łamią to samo założenie „gładkiej powierzchni" na trzy różne sposoby.</p>
   </div>
 
 <div class="site-nav chapter-nav">
