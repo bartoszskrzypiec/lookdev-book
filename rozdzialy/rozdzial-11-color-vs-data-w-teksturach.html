@@ -20,16 +20,78 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 11/24</span><span>CZĘŚĆ · IV</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>ARNOLD · color_space (string, OCIO)</span><span>RENDERMAN · linearize (bool)</span><span>BŁĄD · podwójna dekodyzacja</span>
   </div>
 
   <div class="eyebrow">Rozdział 11 / Tekstury</div>
   <h1>Color vs data w teksturach</h1>
   <p class="subtitle">Ten sam plik PNG oznacza dwie zupełnie różne rzeczy w zależności od jednego przełącznika przy slocie tekstury — i to najczęstszy błąd, jaki zobaczysz w cudzej scenie.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>Albedo/base color to tekstura <span class="term-amber">koloru</span> — plik zakodowany sRGB, wymaga dekodowania do linear przed shadingiem (Rozdział 5). Roughness, normal, metalness, displacement to <span class="term-cyan">dane</span> — surowe liczby, których dekodować <em>nie wolno</em>.</li>
+      <li>Arnold steruje tym przez <code>color_space</code> — string nazwany wprost z configu OCIO (Rozdział 6): <code>RAW</code>, <code>sRGB</code>, <code>ACEScg</code> albo dowolna inna zdefiniowana przestrzeń. RenderMan ma <code>linearize</code> — zwykły przełącznik bool, cofający sRGB, bez nazwanych przestrzeni.</li>
+      <li>Najczęstszy realny błąd to nie zła etykieta, tylko <strong>podwójna dekodyzacja</strong> — DCC (Maya, Houdini) i renderer oba próbują zdekodować tę samą teksturę, niezależnie od siebie.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Kolor kontra dane</div>
+    <h2>Dlaczego ten sam plik PNG znaczy dwie różne rzeczy</h2>
+    <p>Plik graficzny sam w sobie nie wie, czym jest — to tylko siatka liczb 0–255 (albo 0–65535, przy 16 bitach). To, czy te liczby mają zostać zdekodowane krzywą sRGB przed użyciem w shadingu (Rozdział 5), zależy wyłącznie od tego, <em>co</em> ta tekstura reprezentuje. Albedo/base color to percepcyjnie zakodowany kolor — malarz czy fotograf pracował w przestrzeni, w której 50% szarości na ekranie odpowiada wartości ~188/255, nie 128/255 — więc wymaga dekodowania do linear, dokładnie jak każdy inny obraz sRGB. Roughness, metalness, normal, displacement, maska SSS to <strong>dane</strong>: liczby, które mają znaczyć dokładnie to, co jest zapisane w pliku, bez żadnej krzywej pośrodku. Zdekodowanie danych jak koloru przesuwa każdą z tych liczb w miejsce, którego artysta nigdy nie zamierzał.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Arnold</div>
+    <h2>color_space jako string z configu OCIO</h2>
+    <p>Node <code>image</code> w Arnoldzie ma parametr <code>color_space</code> — dziś string, którego lista dostępnych wartości pochodzi wprost z aktywnego configu OCIO (Rozdział 6), nie z zaszytej na sztywno listy. Typowe wartości: <code>RAW</code> (dla masek, roughness, displacement — bez żadnej konwersji), <code>sRGB</code> (dla tekstur 8–16 bit typu JPEG/PNG), <code>ACEScg</code> (gdy plik już jest w working space renderera). Jest też <code>auto</code> — ale to nie jest inteligentne wykrywanie po nazwie pliku: Arnold w trybie auto stosuje surową heurystykę, plik 8-bitowy traktuje jako sRGB, plik zmiennoprzecinkowy jako linear, i na tym kończy analizę.</p>
+    <p>Kluczowy, łatwy do przeoczenia fakt: <strong>Arnold sam nie czyta reguł plikowych (file rules) z configu OCIO</strong> — czyli tych reguł, które w configu mówią „każdy plik pasujący do wzorca <code>*_BaseColor*</code> jest sRGB, każdy pasujący do <code>*_Roughness*</code> jest Raw". Te reguły potrafi zastosować aplikacja hosta (Maya, Houdini), o ile sama je propaguje do node'ów obrazu — jeśli nie propaguje, kolor_space trzeba ustawić ręcznie na każdym node'zie z osobna.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: RenderMan</div>
+    <h2>linearize jako grubszy przełącznik binarny</h2>
+    <p>PxrTexture w RenderManie steruje tym samym przełącznikiem znacznie prościej: <code>linearize</code> — pojedynczy bool, domyślnie wyłączony, który po prostu odwraca krzywą sRGB. Włączony dla albedo/koloru, wyłączony dla roughness/displacement/normal — dokładnie ten sam podział co w Arnoldzie, tylko bez nazwanych przestrzeni barw na poziomie samego node'a. Zamiast tego RenderMan (od wersji 24) przenosi większość decyzji o przestrzeni barw wcześniej w pipeline'ie, do Texture Managera przy pieczeniu tekstur na <code>.tex</code> (Rozdział 12) — kolor_space jest tam często ustalany raz, na etapie <code>txmake</code>, zamiast być odczytywany dynamicznie przy każdym samplingu, jak w Arnoldzie.</p>
+    <div class="table-frame">
+      <table class="data-table">
+        <thead><tr><th>Aspekt</th><th>Arnold (<code>image</code>)</th><th>RenderMan (<code>PxrTexture</code>)</th></tr></thead>
+        <tbody>
+          <tr><td>Parametr</td><td><code>color_space</code> (string)</td><td><code>linearize</code> (bool)</td></tr>
+          <tr><td>Nazwane przestrzenie</td><td>tak — z configu OCIO</td><td>nie — tylko odwrócenie sRGB</td></tr>
+          <tr><td>Auto-detekcja po nazwie pliku</td><td>tylko jeśli host app propaguje file rules configu</td><td>zwykle ustalane wcześniej, przy pieczeniu <code>.tex</code></td></tr>
+          <tr><td>Moment decyzji</td><td>przy odczycie tekstury / renderze</td><td>często raz, przy <code>txmake</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Kiedy się myli</div>
+    <h2>Podwójna dekodyzacja: dwa systemy próbujące zrobić to samo</h2>
+    <p>Najczęstszy realny błąd nie polega na tym, że ktoś świadomie źle ustawia przełącznik — polega na tym, że <strong>dwa niezależne systemy próbują zdekodować tę samą teksturę</strong>, nie wiedząc o sobie nawzajem. Dwa udokumentowane, konkretne przykłady: w Mayi node <code>aiImage</code> potrafi utknąć na wartości „sRGB” i nie dawać się przełączyć, kolidując z własnym Color Space z node'a <code>file</code>. W Houdini node File COP ma osobny checkbox „Linearize Non-Linear Images", który dekoduje teksturę <em>dodatkowo</em>, niezależnie od tego, co ustala config OCIO sceny czy sam Arnold — dwie dekodyzacje z rzędu na tej samej teksturze.</p>
+    <p>Objawy w każdą stronę są rozpoznawalne. Roughness albo normal map błędnie potraktowana jak sRGB (zdekodowana, choć nie powinna): dekodyzacja to krzywa wypukła w dolnym zakresie, więc wartości środkowego roughness zostają ściągnięte w dół — powierzchnia wygląda gładsza/bardziej błyszcząca, niż artysta zamierzył; normal map traci swój neutralny punkt odniesienia (128,128,255), więc detal bumpa wygląda subtelnie zniekształcony, nie tam, gdzie był wyrzeźbiony. Albedo błędnie potraktowane jak dane (nie zdekodowane, choć powinno): wartości zostają w swojej percepcyjnie podniesionej, zbyt jasnej formie, więc materiał wygląda wypłowiały i pozbawiony kontrastu, zanim jeszcze dotrze do niego jakiekolwiek światło.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Kolor kontra dane (color vs. data)</dt>
+      <dd>Podział tekstur na percepcyjnie zakodowane (albedo, sRGB, wymaga dekodowania) i surowe liczby (roughness, normal, displacement — bez dekodowania).</dd>
+      <dt>color_space (Arnold)</dt>
+      <dd>String na node'zie <code>image</code>, wartości pochodzą z aktywnego configu OCIO.</dd>
+      <dt>linearize (RenderMan)</dt>
+      <dd>Bool na <code>PxrTexture</code>, odwraca krzywą sRGB — bez nazwanych przestrzeni barw.</dd>
+      <dt>File rules (OCIO)</dt>
+      <dd>Reguły w configu OCIO dopasowujące przestrzeń barw po wzorcu nazwy pliku — Arnold sam ich nie czyta, host app może.</dd>
+      <dt>Podwójna dekodyzacja</dt>
+      <dd>Błąd, gdy DCC i renderer niezależnie dekodują tę samą teksturę, np. Houdini File COP plus ustawienie renderera.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Kolor kontra dane to decyzja o tym, <em>jak czytać</em> liczby w pliku. Rozdział 12 dotyka pytania, ile tych liczb w ogóle trzeba zapisać — bit depth, dithering i kompresja, zanim tekstura w ogóle trafi do pamięci renderera.</p>
   </div>
 
 <div class="site-nav chapter-nav">

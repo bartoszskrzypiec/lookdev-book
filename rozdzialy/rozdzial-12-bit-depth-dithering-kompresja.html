@@ -20,16 +20,81 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 12/24</span><span>CZĘŚĆ · IV</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>8-BIT SRGB · ~256 kroków</span><span>DITHERING · szum przed kwantyzacją</span><span>KOMPRESJA · zip/piz kontra dwaa</span>
   </div>
 
   <div class="eyebrow">Rozdział 12 / Tekstury</div>
   <h1>Bit depth, dithering, kompresja</h1>
   <p class="subtitle">8-bitowa tekstura w przestrzeni liniowej zaczyna się rozpadać na pasy, zanim jeszcze trafi do renderera — dlaczego niektóre kanały muszą być float, a inne nie.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>8-bitowa tekstura sRGB rozpada się na pasy w cieniach nie dlatego, że tam „jest mniej kroków" — tylko dlatego, że krzywa dekodowania sRGB→linear ściska wiele różnych wartości wejściowych w bardzo wąski zakres wyjściowy, a każde kolejne mnożenie w liniowym shadingu tę różnicę uwidacznia.</li>
+      <li>Mapy <span class="term-cyan">danych</span> (displacement, promień SSS, czasem roughness) potrzebują 16-bit albo float. Proste albedo zwykle może zostać 8-bitowe, bo jest ostatnim mnożeniem w łańcuchu, nie pośrednim krokiem.</li>
+      <li><span class="term-violet">Dithering</span> — kontrolowany szum dodany tuż przed kwantyzacją do niższego bit depth — to konkretne, techniczne narzędzie przeciw pasom, nie kosmetyka.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Mechanizm</div>
+    <h2>Dlaczego akurat cienie</h2>
+    <p>Intuicja „sRGB daje cieniom więcej kroków, więc jest lepiej" jest tylko połową prawdy i nie tłumaczy, dlaczego banding w ogóle się pojawia. Prawdziwy mechanizm jest inny: krzywa dekodowania sRGB→linear (w przybliżeniu potęga ~2,2) jest wypukła — bierze <em>szeroki</em> zakres wejściowych wartości 8-bitowych blisko zera i ściska je w <em>wąski</em> zakres wynikowy, bliski zera. Jeśli wynik tej dekodyzacji zostanie z powrotem zapisany albo przetworzony przy niskim bit depth, wiele różnych wartości wejściowych ląduje w tym samym, jednym „kubełku" wyjściowym — informacja o gradiencie w cieniach znika, zanim jeszcze zacznie się shading. Przy gamma ≈2,2 wartość wejściowa 8-bit musi sięgnąć ~21/255, zanim dekodowany wynik w ogóle przestanie być zerem — wszystko poniżej tego progu koliduje w jeden punkt.</p>
+    <div class="worked">
+      <div class="wlabel">Policzone: ile wartości 8-bit koliduje poniżej progu dekodyzacji</div>
+      <div class="step"><span class="k">Próg</span> — przy gamma ≈2,2, wejściowe u8 = 21 (0,082) to pierwsza wartość dająca niezerowy wynik po dekodyzacji</div>
+      <div class="step"><span class="k">Kolizja</span> — wartości wejściowe u8 = 0…20, czyli <span class="v">21 różnych poziomów</span>, dekodują się i zaokrąglają do tego samego, zerowego wyniku</div>
+      <div class="result">21 z 256 możliwych poziomów szarości (ok. 8% całego zakresu 8-bit) w cieniach koliduje w jeden punkt, zanim cokolwiek innego zdąży się wydarzyć — i to jeszcze przed jakimkolwiek mnożeniem w shaderze.</div>
+      <div class="check">Problem narasta w dalszych krokach: mnożenie (światło × albedo, ekspozycja, grading) zachowuje względny błąd kwantyzacji zamiast go uśredniać — każde kolejne mnożenie poszerza widoczną lukę między ocalałymi poziomami, zamiast ją zamykać.</div>
+    </div>
+    <p>To dlatego problem jest najbardziej widoczny właśnie wtedy, gdy ktoś <em>zapisuje</em> pośredni wynik (np. zdekodowaną teksturę z powrotem jako plik 8-bitowy), a nie wtedy, gdy dekodyzacja dzieje się raz, w locie, przy samplingu tekstury we float. Dopóki cała ścieżka od pliku do shadingu trzyma wysoką precyzję (16 albo 32 bit), banding z tego mechanizmu się nie pojawia — pojawia się dokładnie tam, gdzie ktoś w środku łańcucha zaokrągla z powrotem do 8 bitów.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Które kanały</div>
+    <h2>Gdzie 8-bit wystarcza, a gdzie nie</h2>
+    <p>Albedo/base color zwykle bezpiecznie zostaje 8-bitowe — to zwykle <em>ostatnie</em> mnożenie w łańcuchu, oglądane po transformie wyświetlania (Rozdział 6), więc drobna utrata precyzji rzadko jest widoczna. Displacement, promień/MFP SSS (Rozdział 16) i roughness sterujący ostrym specularem to co innego — to wartości <em>pośrednie</em>, przez które przechodzi dalsza matematyka (przesunięcie geometrii, mnożenie przez scale, podnoszenie do potęgi w GGX), więc każdy błąd kwantyzacji na wejściu compounduje się w dalszych krokach. Praktyczna zasada: im więcej matematyki dzieje się <em>po</em> odczycie danej mapy, tym wyższy bit depth jest tej mapy wart.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Dithering</div>
+    <h2>Kontrolowany szum przed kwantyzacją</h2>
+    <p>Dithering to dodanie niewielkiego, losowego szumu do obrazu <em>tuż przed</em> zaokrągleniem do niższego bit depth — szum rozbija ostre granice między pasami na ziarnistą, znacznie mniej widoczną teksturę, kosztem odrobiny szumu zamiast wyraźnych krawędzi. Narzędzie <code>maketx</code> (OpenImageIO, pipeline Arnolda) ma udokumentowaną flagę <code>--dither</code>, włączającą losowy dithering przy każdej konwersji do 8 bitów lub mniej. Odpowiednik po stronie RenderMana, <code>txmake</code>, w dostępnej dokumentacji <strong>nie</strong> wystawia analogicznej flagi — jeśli dithering jest tam potrzebny, trzeba go zrobić wcześniej, na etapie przygotowania tekstury, a nie liczyć na sam <code>txmake</code>.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Kompresja</div>
+    <h2>zip/piz kontra dwaa — co tracisz, a co zyskujesz</h2>
+    <div class="table-frame">
+      <table class="data-table">
+        <thead><tr><th>Format</th><th>Typ</th><th>Kiedy używać</th></tr></thead>
+        <tbody>
+          <tr><td><code>zip</code> / <code>piz</code> (Arnold, EXR)</td><td>bezstratny</td><td>domyślny wybór <code>maketx</code>; obowiązkowy dla map danych — normal, roughness, displacement</td></tr>
+          <tr><td><code>dwaa</code> / <code>dwab</code> (Arnold, EXR)</td><td>stratny, blokowy</td><td>kolor/albedo w wysokiej rozdzielczości — potrafi przepołowić rozmiar pliku bez widocznej różnicy przy domyślnej jakości</td></tr>
+          <tr><td><code>none</code> / <code>lossless</code> / <code>lossy</code> (RenderMan, <code>.tex</code>)</td><td>trzy tryby wprost</td><td>format Pixara domyślnie <code>lossless</code>, EXR domyślnie <code>zip</code>; <code>lossy</code> dla float'owych tekstur, gdzie liczy się rozmiar bardziej niż pełna precyzja</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Jeden konkretny, udokumentowany powód, żeby nie sięgać po <code>dwaa</code> dla map jednokanałowych: ma znany błąd na obrazach monochromatycznych, gdy rozmiar kafla jest mniejszy niż 16 albo nie jest potęgą dwójki — Arnold w takim wypadku po cichu spada z powrotem na <code>zip</code>. To dodatkowy, praktyczny argument za regułą, która i tak wynika z poprzedniej sekcji: mapy danych (jednokanałowe, precyzyjne) — bezstratnie; kolor w wysokiej rozdzielczości — stratna kompresja jest akceptowalnym kompromisem.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Banding (pasy)</dt>
+      <dd>Widoczne skoki jasności zamiast gładkiego gradientu, efekt zbyt niskiego bit depth po dekodyzacji/przetworzeniu.</dd>
+      <dt>Dithering</dt>
+      <dd>Dodanie kontrolowanego szumu przed kwantyzacją, żeby zamienić ostre pasy na mniej widoczne ziarno.</dd>
+      <dt>Kompresja bezstratna (zip/piz/lossless)</dt>
+      <dd>Zmniejsza rozmiar pliku bez utraty żadnej informacji — konieczna dla map danych.</dd>
+      <dt>Kompresja stratna (dwaa/dwab/lossy)</dt>
+      <dd>Odrzuca część informacji dla mniejszego rozmiaru pliku — akceptowalna dla koloru, ryzykowna dla danych.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Tekstury są gotowe — poprawnie zdekodowane, w odpowiednim bit depth. Rozdział 13 otwiera Część V i pokazuje, gdzie te mapy trafiają: do warstw <code>aiStandardSurface</code> i <code>PxrSurface</code>, tego samego stosu GGX i Fresnela z poprzedniej książki pod postacią konkretnych parametrów.</p>
   </div>
 
 <div class="site-nav chapter-nav">
