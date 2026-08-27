@@ -20,16 +20,162 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 13/24</span><span>CZĘŚĆ · V</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>WARSTWY · 8 kontra 8</span><span>WSPÓLNY MIANOWNIK · GGX + Fresnel</span><span>RÓŻNI SIĘ · kto pilnuje energii</span>
   </div>
 
   <div class="eyebrow">Rozdział 13 / Shading produkcyjny</div>
   <h1>aiStandardSurface / PxrSurface warstwa po warstwie</h1>
   <p class="subtitle">GGX i Fresnel z poprzedniej książki nie znikają w produkcyjnym shaderze — chowają się pod nazwami parametrów, które trzeba umieć odczytać z powrotem jako wzór.</p>
 
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>Oba shadery to jeden node, będący stosem <span class="term-amber">warstw</span> (lobów) światła, mieszanych ze sobą — nie graf node'ów per materiał. Większość warstw to ten sam pomysł pod inną nazwą.</li>
+      <li>Jedna warstwa różni się <em>mechanizmem</em>, nie tylko nazwą: <span class="term-cyan">specular i „metalness”</span>. W PxrSurface nie ma suwaka Metalness — metal maluje się wprost przez kolor Fresnela.</li>
+      <li>Najgłębsza różnica nie jest w ogóle parametrem: to <span class="term-violet">kto pilnuje bilansu energii</span> między warstwami. Arnold robi to automatycznie i po cichu; PxrSurface oddaje Ci budżet i ufa, że sam go rozliczysz.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Stos warstw</div>
+    <h2>Ten sam stos, dwie etykiety</h2>
+    <p>Żaden z tych shaderów nie każe Ci budować materiału z osobnych node'ów BRDF połączonych w graf — GGX i Fresnel z poprzedniej książki (raytracing-book, Rozdziały 10–11) siedzą już w środku, jako gotowe warstwy jednego node'a, którym możesz sterować pojedynczymi parametrami. Kolejność warstw w obu jest niemal identyczna, licząc od góry (najbardziej zewnętrznej) w dół:</p>
+
+    <div class="diagram-frame">
+      <div class="diagram-hud"><span>Layer.stack</span><span>aiStandardSurface vs PxrSurface</span></div>
+      <svg viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dwie kolumny warstw shadera, od gory do dolu: Arnold ma Coat, Thin Film, Sheen, Specular plus Metalness, Transmission, Subsurface, Base Diffuse, Emission. PxrSurface ma Clearcoat, Iridescence, Fuzz, Specular plus Rough Specular, Glass, Subsurface, Diffuse, Glow.">
+        <text x="190" y="26" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="#8b909b">AISTANDARDSURFACE</text>
+        <text x="570" y="26" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" fill="#8b909b">PXRSURFACE</text>
+        <line x1="380" y1="16" x2="380" y2="326" stroke="#2a2f38"/>
+
+        <g font-family="IBM Plex Mono" font-size="12.5" fill="#ecebe4">
+          <rect x="60" y="38" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="190" y="58" text-anchor="middle">Coat</text>
+          <rect x="60" y="70" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="190" y="90" text-anchor="middle">Thin Film</text>
+          <rect x="60" y="102" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="190" y="122" text-anchor="middle">Sheen</text>
+          <rect x="60" y="134" width="260" height="30" fill="#20242c" stroke="#e8a33d" stroke-width="1.4"/><text x="190" y="154" text-anchor="middle" fill="#e8a33d">Specular + Metalness</text>
+          <rect x="60" y="166" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="190" y="186" text-anchor="middle">Transmission</text>
+          <rect x="60" y="198" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="190" y="218" text-anchor="middle">Subsurface</text>
+          <rect x="60" y="230" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="190" y="250" text-anchor="middle">Base (Diffuse)</text>
+          <rect x="60" y="262" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="190" y="282" text-anchor="middle">Emission</text>
+        </g>
+
+        <g font-family="IBM Plex Mono" font-size="12.5" fill="#ecebe4">
+          <rect x="440" y="38" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="570" y="58" text-anchor="middle">Clearcoat</text>
+          <rect x="440" y="70" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="570" y="90" text-anchor="middle">Iridescence</text>
+          <rect x="440" y="102" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="570" y="122" text-anchor="middle">Fuzz</text>
+          <rect x="440" y="134" width="260" height="30" fill="#20242c" stroke="#e8a33d" stroke-width="1.4"/><text x="570" y="154" text-anchor="middle" fill="#e8a33d">Specular + Rough Specular</text>
+          <rect x="440" y="166" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="570" y="186" text-anchor="middle">Glass</text>
+          <rect x="440" y="198" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="570" y="218" text-anchor="middle">Subsurface</text>
+          <rect x="440" y="230" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="570" y="250" text-anchor="middle">Diffuse</text>
+          <rect x="440" y="262" width="260" height="30" fill="#1b1e24" stroke="#2a2f38"/><text x="570" y="282" text-anchor="middle">Glow</text>
+        </g>
+        <text x="380" y="310" text-anchor="middle" font-family="IBM Plex Mono" font-size="10.5" fill="#8b909b">Rough Specular (PxrSurface) nie ma odpowiednika w Arnoldzie — zostaw wyłączony przy migracji</text>
+      </svg>
+      <div class="diagram-caption">Ten sam porządek: warstwy zewnętrzne (coat/clearcoat) na górze, dyfuzja/emisja na dole. Pomarańczowa warstwa specular to jedyne miejsce, gdzie mechanizm, nie tylko nazwa, naprawdę się różni.</div>
+    </div>
+
+    <p>Większość wierszy w tabeli niżej to zwykła zamiana nazwy — ten sam parametr, ta sama jednostka, można wpisać bez myślenia. Kilka wierszy jest oznaczonych, bo kryje w sobie prawdziwą pułapkę koncepcyjną, nie tylko nazewniczą.</p>
+
+    <div class="table-frame">
+      <table class="data-table">
+        <thead>
+          <tr><th>aiStandardSurface</th><th>PxrSurface</th><th>Uwaga</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>base_color</code></td><td>Diffuse Color</td><td>proste 1:1</td></tr>
+          <tr><td><code>base</code> (weight)</td><td>Diffuse Gain</td><td>proste 1:1</td></tr>
+          <tr><td><code>diffuse_roughness</code></td><td>Diffuse Roughness</td><td>ta sama idea — spłaszcza Lamberta, „proszkowy” wygląd</td></tr>
+          <tr><td><code>specular_color</code></td><td>Specular Face/Edge Color</td><td>PxrSurface rozdziela kolor na wprost i pod kątem — patrz Rozdział 14</td></tr>
+          <tr><td><code>specular_roughness</code></td><td>Specular Roughness</td><td>ta sama idea, ale Arnold podnosi roughness do kwadratu wewnętrznie</td></tr>
+          <tr><td><code>metalness</code></td><td><em>brak bezpośredniego odpowiednika</em></td><td>osiągane przez Face/Edge Color — patrz Rozdział 14</td></tr>
+          <tr><td><code>specular_anisotropy</code></td><td>Anisotropy</td><td>Arnold 0→1, PxrSurface −1→1 (ujemna połowa = te same elipsy obrócone o 90°)</td></tr>
+          <tr><td><code>specular_rotation</code></td><td>Shading Tangent</td><td>brak suwaka — tylko wejście-połączenie, trzeba odbudować mapą tangent</td></tr>
+          <tr><td><em>(zawsze GGX)</em></td><td>Specular Model</td><td>PxrSurface: Beckmann (domyślnie) albo GGX — patrz Rozdział 14</td></tr>
+          <tr><td><code>coat</code></td><td>Clearcoat</td><td>osobny Face/Edge Color, roughness, IOR ≈ 1,5 w obu — Rozdział 15</td></tr>
+          <tr><td><code>sheen</code> / <code>sheen_color</code></td><td>Fuzz Gain / Fuzz Color</td><td>proste 1:1 — Rozdział 15</td></tr>
+          <tr><td><code>sheen_roughness</code></td><td>Fuzz Cone Angle</td><td>nie roughness — kąt w stopniach; Cone Angle ≈ 32 × Sheen Roughness</td></tr>
+          <tr><td><code>subsurface_radius</code></td><td>Mean Free Path Color</td><td>promień staje się kolorem — Rozdział 16</td></tr>
+          <tr><td><code>subsurface_scale</code></td><td>Mean Free Path Distance</td><td>skala staje się dystansem, dodatkowo mnożonym przez Unit Length — Rozdział 16</td></tr>
+          <tr><td><code>emission</code> / <code>emission_color</code></td><td>Glow Gain / Glow Color</td><td>proste przemianowanie</td></tr>
+          <tr><td><code>transmission</code></td><td>Reflection Gain <strong>i</strong> Refraction Gain</td><td>jeden suwak staje się dwoma — Rozdział 15</td></tr>
+          <tr><td><code>opacity</code> (RGB)</td><td>Presence (float)</td><td>kolorowa opacity nie ma dokąd trafić — Presence chce 0 albo 1</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption">Pełna mapa parametr-na-parametr, oba shadery, stan na RenderMan 24–26 / Arnold aktualne wydania.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Specular i metalness</div>
+    <h2>Warstwa, która różni się mechanizmem, nie tylko nazwą</h2>
+    <p>W Arnoldzie <code>metalness</code> to jeden suwak, który po cichu robi dwie rzeczy naraz: barwi specular kolorem z <code>base_color</code> i wygasza diffuse (metal nie ma rozproszenia podpowierzchniowego — światło albo się odbija, albo zostaje pochłonięte, nic nie ucieka spod powierzchni). PxrSurface nie ma tego suwaka w ogóle. Zamiast tego dajesz wprost dwa kolory Fresnela: <strong>Specular Face Color</strong> (odbicie patrząc wprost) i <strong>Specular Edge Color</strong> (odbicie pod kątem, przy grazing angle). Dielektryk dostaje niski, prawie neutralny Face Color i biały Edge Color; metal dostaje oba kolory przesunięte w stronę rzeczywistej barwy metalu — i, co łatwo pominąć, ręcznie wyzerowany Diffuse Gain. Pominięcie tego drugiego kroku to najczęstszy powód, dla którego przekonwertowany metal wygląda jak szary plastik, nie jak metal.</p>
+    <p>Do tego dochodzi <strong>Specular Model</strong>: Arnold zawsze liczy GGX, PxrSurface domyślnie startuje z Beckmanna — różnica widoczna w tym, jak gwałtownie gaśnie brzeg poświaty (Beckmann urywa się ostro, GGX ciągnie miękki „ogon”), najbardziej zauważalna na lakierze samochodowym i wypolerowanej podłodze. Trzeba przełączyć na GGX osobno na warstwie Specular <em>i</em> osobno na Clearcoat — to dwa niezależne ustawienia, nie jedno globalne.</p>
+    <a class="inline-deeper" href="rozdzial-14-dielektryki-i-metale.html">↓ Rozdział 14 — pełny wywód: Fresnel dielektryka kontra metalu, edge tint, energia</a>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Bilans energii</div>
+    <h2>Kto pilnuje, żeby materiał nie odbił więcej światła, niż dostał</h2>
+    <p><code>aiStandardSurface</code> prowadzi księgowość energii automatycznie i po cichu: podniesienie <code>metalness</code> wygasza diffuse, włączenie <code>transmission</code> je zmniejsza, dołożenie <code>coat</code> przyciemnia to, co jest pod spodem — wszystko dzieje się w tle, bez Twojego udziału. PxrSurface oddaje Ci ten budżet i ufa, że sam go rozliczysz: warstwy są niezależne, podniesienie specular nie obniża diffuse, nic Cię nie ostrzeże, jeśli warstwy razem odbijają więcej światła, niż w ogóle padło. To nie jest niedopatrzenie w konstrukcji PxrSurface — to świadomy wybór większej kontroli kosztem większej odpowiedzialności.</p>
+    <p>Sam oficjalny konwerter Pixara, tłumaczący materiały z Arnolda na PxrSurface, ręcznie domnaża: <code>Diffuse Gain × (1 − metalness) × (1 − subsurface)</code> oraz <code>Subsurface Gain × (1 − sheen)</code> — właśnie dlatego, że PxrSurface tego sam nie zrobi. Praktyczna reguła, która oszczędza najwięcej czasu przy budowie warstwowego materiału w PxrSurface: <strong>za każdym razem, gdy podnosisz jeden gain, zapytaj, który inny powinien w zamian zejść w dół.</strong> Podniesienie Subsurface Gain do 1 bez obniżenia Diffuse Gain oświetla materiał podwójnie — i dokładnie ten sam błąd powtarza się przy Fuzz nałożonym na materiał z aktywnym subsurface.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Pierwsze 15 minut</div>
+    <h2>Dlaczego świeży PxrSurface wygląda jak szara kula, a nie jak plastik</h2>
+    <p>Świeży <code>aiStandardSurface</code> od razu wygląda jak używalny biały plastik — domyślne wartości są dobrane tak, żeby coś sensownego było widać od pierwszej klatki. Świeży PxrSurface wygląda jak matowa, ciemnoszara kula bez żadnego połysku. To nie błąd — PxrSurface startuje z niemal wszystkim wyłączonym, tam gdzie Arnold startuje z gotowym materiałem:</p>
+
+    <div class="table-frame">
+      <table class="data-table">
+        <thead>
+          <tr><th>Parametr</th><th class="num">aiStandardSurface</th><th class="num">PxrSurface</th><th>Znaczenie różnicy</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Base/Diffuse Color</td><td class="num">0,8</td><td class="num">0,18</td><td>PxrSurface startuje dużo ciemniej (18% szarości)</td></tr>
+          <tr><td>Specular</td><td class="num">waga 1, biały</td><td class="num">Face i Edge Color czarne</td><td>brak jakiegokolwiek specularu, dopóki nie ustawisz koloru</td></tr>
+          <tr><td>Specular Model</td><td class="num">zawsze GGX</td><td class="num">Beckmann</td><td>przełącz na GGX, żeby dopasować kształt poświaty</td></tr>
+          <tr><td>Clearcoat Roughness</td><td class="num">0,1</td><td class="num">0,0</td><td>domyślnie idealne lustro — łatwo przeoczyć na chropowatej bazie</td></tr>
+          <tr><td>Subsurface Distance</td><td class="num">Scale 1</td><td class="num">MFP 10</td><td>liczba dziesięciokrotnie większa — kopiowanie promienia bez poprawki zamienia skórę w wosk</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="worked">
+      <div class="wlabel">Kolejność budowy materiału w PxrSurface od zera</div>
+      <div class="step"><span class="k">1.</span> Najpierw diffuse: Diffuse Color/Gain, oceń wygląd <strong>bez</strong> żadnego specularu</div>
+      <div class="step"><span class="k">2.</span> Specular Model → GGX, na warstwie Specular <strong>i</strong> osobno na Clearcoat</div>
+      <div class="step"><span class="k">3.</span> Dopiero teraz kolor specularu — Face/Edge Color, bo domyślnie są czarne</div>
+      <div class="step"><span class="k">4.</span> Zapłać rachunek za energię — zeruj Diffuse Gain dla metalu, obniż go, jeśli podniosłeś subsurface</div>
+      <div class="step"><span class="k">5.</span> Roughness — potraktuj starą wartość z Arnolda jako punkt startowy, nie gotowy wynik (Arnold podnosi roughness do kwadratu wewnętrznie, PxrSurface nie)</div>
+      <div class="step"><span class="k">6.</span> Na końcu Clearcoat, potem bump (globalny, nie per-warstwa) i Presence dla wycięć</div>
+      <div class="result">Ta kolejność (diffuse → model → kolor specularu → energia → roughness → detal) unika najczęstszych „dlaczego to wygląda jak plastik/dlaczego nic nie widać” pytań przy pierwszym kontakcie z PxrSurface.</div>
+    </div>
+  </div>
+
   <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+    <div class="panel-label">Z praktyki</div>
+    <p>Zanim uznasz, że renderer „kłamie": czy Specular Face Color wciąż jest czarny (brak specularu)? Czy Specular Model wciąż jest na Beckmannie (zły kształt poświaty)? Dla metalu — czy Diffuse Gain wciąż jest powyżej zera? Dla szkła — czy ustawiłeś <strong>oba</strong> Reflection i Refraction Gain, nie tylko jeden? Dla skóry — czy Mean Free Path Distance wciąż stoi na domyślnym 10? Ta lista wyłapuje większość pierwszych błędów szybciej niż grzebanie w losowych suwakach.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Warstwa (lob)</dt>
+      <dd>Jeden komponent światła w stosie shadera (diffuse, specular, coat...), mieszany z resztą według własnej wagi/gain.</dd>
+      <dt>Fresnel Face/Edge Color</dt>
+      <dd>PxrSurface: kolor odbicia specularnego patrząc wprost (Face) i pod kątem, przy grazing angle (Edge) — zastępuje suwak metalness.</dd>
+      <dt>Metalness workflow</dt>
+      <dd>Arnold: jeden suwak jednocześnie barwiący specular i wygaszający diffuse.</dd>
+      <dt>Bilans energii (energy conservation)</dt>
+      <dd>Zasada, że suma odbitego/przepuszczonego światła nie może przekroczyć tego, co padło — Arnold pilnuje automatycznie, PxrSurface nie.</dd>
+      <dt>Beckmann kontra GGX</dt>
+      <dd>Dwa modele rozkładu mikrofasetek — różnią się głównie tym, jak gwałtownie gaśnie brzeg poświaty specularnej.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Ten rozdział pokazał cały stos z lotu ptaka. Rozdział 14 schodzi w głąb jednej, najważniejszej warstwy — specularu — i pokazuje, dlaczego IOR dielektryka to jedna liczba, a IOR metalu to dwie, obie zależne od długości fali.</p>
   </div>
 
 <div class="site-nav chapter-nav">

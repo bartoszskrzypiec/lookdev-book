@@ -20,16 +20,96 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 14/24</span><span>CZĘŚĆ · V</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>DIELEKTRYK · IOR = 1 liczba</span><span>METAL · n + ik, zależne od λ</span><span>WORKFLOW · Face/Edge Color kontra IOR</span>
   </div>
 
   <div class="eyebrow">Rozdział 14 / Shading produkcyjny</div>
   <h1>Dielektryki i metale</h1>
   <p class="subtitle">IOR dielektryka to jedna liczba. IOR metalu to dwie, obie zależne od długości fali — i to dlatego złoto nie ma jednego poprawnego koloru specularu.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li><span class="term-amber">Dielektryk</span> ma IOR jako jedną liczbę rzeczywistą (~1,3–1,6), praktycznie stałą w całym widmie widzialnym. <span class="term-cyan">Metal</span> ma IOR zespolony, n + ik, i obie części — n <em>i</em> k — zmieniają się silnie z długością fali. To dosłownie ten sam mechanizm elektronowy z Dodatku AO raytracing-book, tylko po stronie renderera.</li>
+      <li>Żaden z dwóch shaderów nie każe Ci znać prawdziwych liczb n i k. Arnold ma workflow „metalness” (jeden suwak barwi specular i wygasza diffuse); PxrSurface ma tryb <span class="term-violet">Artistic</span> (malujesz Face/Edge Color wprost) kontra <span class="term-violet">Physical</span> (wpisujesz prawdziwe IOR/extinction).</li>
+      <li>Face/Edge Color to nie uproszczenie „na oko” — to konkretna, znana aproksymacja (Schlick + edge tint, Gulbrandsen 2014) zespolonego Fresnela dwoma kolorami zamiast dwóch liczb zespolonych na kanał.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Dielektryk</div>
+    <h2>Jedna liczba, prawie stała</h2>
+    <p>Fresnel dielektryka z raytracing-book (Rozdział 7) liczy się z jednego, rzeczywistego współczynnika załamania — ile procent światła odbija się przy patrzeniu wprost na powierzchnię:</p>
+    <div class="formula">R0 = ((n − 1) / (n + 1))²<span class="sub">n — współczynnik załamania (IOR) dielektryka, jedna liczba rzeczywista; R0 — reflektancja przy kącie padania 0° (patrząc wprost)</span></div>
+    <p>Dla większości dielektryków spotykanych w lookdevie ta liczba jest praktycznie stała w całym widmie widzialnym — dlatego specular na czerwonej plastikowej kuli jest biały, nie czerwony (raytracing-book, Rozdział 10). Kolor dielektryka pochodzi wyłącznie z diffuse, z selektywnej absorpcji pigmentu pod powierzchnią, nie ze specularu.</p>
+    <div class="table-frame">
+      <table class="data-table">
+        <thead><tr><th>Materiał</th><th class="num">IOR</th><th class="num">R0 (Fresnel przy 0°)</th></tr></thead>
+        <tbody>
+          <tr><td>Woda</td><td class="num">1,33</td><td class="num">2,0%</td></tr>
+          <tr><td>Plastik / żywica</td><td class="num">1,50</td><td class="num">4,0%</td></tr>
+          <tr><td>Szkło koronowe</td><td class="num">1,52</td><td class="num">4,2%</td></tr>
+          <tr><td>Skóra (tkanka)</td><td class="num">1,33–1,40</td><td class="num">2,0–2,8%</td></tr>
+          <tr><td>Diament</td><td class="num">2,42</td><td class="num">17,2%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption">Wartości orientacyjne, IOR jako pojedyncza liczba rzeczywista — dokładne wyprowadzenie wzoru Schlicka jest w raytracing-book, Rozdziale 7.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Metal</div>
+    <h2>Dwie liczby, obie zależne od długości fali</h2>
+    <p>Metal nie ma jednego IOR — ma <strong>zespolony</strong> współczynnik załamania, n + ik, gdzie część rzeczywista n steruje tym samym, czym u dielektryka (prędkością fazową światła w ośrodku), a część urojona k, <span class="term-cyan">współczynnik ekstynkcji</span>, opisuje, jak szybko fala gaśnie tuż pod powierzchnią — u metalu w praktyce natychmiast, bo światło w ogóle nie wnika do wnętrza. Obie części, n(λ) i k(λ), zmieniają się silnie i niezależnie z długością fali. To nie jest niuans do pominięcia: to dokładnie ten mechanizm sprawia, że złoto jest żółte, a srebro prawie białe. Raytracing-book, Dodatek AO wyprowadza <em>dlaczego</em> — swobodne elektrony metalu reagują na światło jak oscylator bez częstości rezonansowej, a konkretny kolor (złoto, miedź) dokłada jeszcze przejścia międzypasmowe, efekt czysto kwantowy, poza prostym modelem klasycznym.</p>
+    <a class="inline-deeper" href="https://bartoszskrzypiec.github.io/raytracing-book/dodatki/dodatek-ao-oscylator-elektronowy.html">↓ raytracing-book, Dodatek AO — dlaczego IOR metalu jest zespolony i zależny od λ</a>
+    <p>Praktyczny skutek: reflektancja metalu przy patrzeniu wprost (odpowiednik R0 dielektryka) to już nie jedna liczba, tylko trójka R, G, B — i to właśnie ta trójka jest tym, co malujesz jako kolor specularu metalu.</p>
+    <div class="table-frame">
+      <table class="data-table">
+        <thead><tr><th>Metal</th><th class="num">Reflektancja R</th><th class="num">G</th><th class="num">B</th></tr></thead>
+        <tbody>
+          <tr><td>Złoto</td><td class="num">1,00</td><td class="num">0,77</td><td class="num">0,34</td></tr>
+          <tr><td>Miedź</td><td class="num">0,96</td><td class="num">0,64</td><td class="num">0,54</td></tr>
+          <tr><td>Aluminium</td><td class="num">0,91</td><td class="num">0,92</td><td class="num">0,92</td></tr>
+          <tr><td>Srebro</td><td class="num">0,97</td><td class="num">0,96</td><td class="num">0,92</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption">Zmierzona reflektancja przy 0° (patrząc wprost), przestrzeń liniowa — powszechnie cytowany zestaw startowy w produkcji (m.in. z kursów Naty'ego Hoffmana o physically based shading). Aluminium i srebro są prawie neutralne — to dlatego wyglądają „srebrzyście”, a złoto i miedź wyraźnie nie.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Workflow</div>
+    <h2>Metalness kontra Face/Edge Color — dwa sposoby na to samo zespolone IOR</h2>
+    <p>Żaden z shaderów nie zmusza Cię do wpisywania prawdziwych n i k. Arnold daje suwak <code>metalness</code>: przy wartości 1 barwi cały specular kolorem z <code>base_color</code> i wygasza diffuse do zera — to aproksymacja, nie prawdziwy zespolony Fresnel, ale wystarczająco dobra, żeby w większości ujęć nie było widać różnicy. PxrSurface idzie o krok dalej i wystawia dwa niezależne kolory: <strong>Specular Face Color</strong> (reflektancja patrząc wprost — dokładnie ta trójka z tabeli wyżej) i <strong>Specular Edge Color</strong> (reflektancja pod kątem, przy grazing angle). To nie przypadkowe dwa suwaki — to konkretna, znana aproksymacja (Schlick rozszerzony o „edge tint”, Gulbrandsen 2014), która dwoma kolorami odtwarza krzywą Fresnela zespolonego IOR wystarczająco wiernie dla lookdevu, bez podawania ani jednej liczby zespolonej.</p>
+    <p>PxrSurface nazywa to wprost trybami: <strong>Artistic</strong> (domyślny — malujesz Face/Edge Color i Fresnel Exponent sterujący szybkością przejścia, najbliższe workflow'owi Arnolda) kontra <strong>Physical</strong> (wpisujesz prawdziwy Specular IOR i, dla metali, Extinction Coefficient — dokładniejsze, ale liczby n/k trudno wyczuć na oko). Oficjalny konwerter Pixara z Arnolda na PxrSurface eksportuje do trybu Physical, bo potrafi policzyć dokładne IOR/extinction programowo z wartości Arnolda — ale przy ręcznej pracy tryb Artistic jest praktyczniejszym wyborem, właśnie dlatego, że człowiek potrafi ocenić kolor, a nie liczbę zespoloną.</p>
+    <div class="worked">
+      <div class="wlabel">Policzone: budowa mosiądzu (stop miedzi i cynku) w PxrSurface, tryb Artistic</div>
+      <div class="step"><span class="k">Punkt startowy</span> — mosiądz jest bliżej miedzi niż złota: Face Color ≈ <span class="v">(0,88; 0,70; 0,40)</span>, pomiędzy tabelą miedzi i złota wyżej</div>
+      <div class="step"><span class="k">Edge Color</span> — prawie biały, jak u każdego metalu: <span class="v">(0,98; 0,97; 0,93)</span></div>
+      <div class="step"><span class="k">Diffuse Gain</span> = <span class="v">0</span> — metal nie ma diffuse, inaczej wygląda jak pomalowany plastik (Rozdział 13)</div>
+      <div class="result">Żadna z tych liczb nie pochodzi z pomiaru n/k — to dobór koloru na podstawie tabeli zmierzonej reflektancji, dokładnie tak, jak robi to produkcja na co dzień.</div>
+    </div>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>IOR (współczynnik załamania)</dt>
+      <dd>U dielektryka — jedna liczba rzeczywista. U metalu — liczba zespolona n + ik.</dd>
+      <dt>Współczynnik ekstynkcji (k)</dt>
+      <dd>Część urojona zespolonego IOR metalu — opisuje, jak szybko fala gaśnie tuż pod powierzchnią.</dd>
+      <dt>Reflektancja przy 0°</dt>
+      <dd>Ułamek światła odbitego patrząc wprost na powierzchnię — u metalu to trójka R,G,B, nie jedna liczba.</dd>
+      <dt>Metalness workflow</dt>
+      <dd>Arnold: jeden suwak jednocześnie barwiący specular i wygaszający diffuse.</dd>
+      <dt>Face/Edge Color, edge tint</dt>
+      <dd>PxrSurface: dwa kolory Fresnela (patrząc wprost / pod kątem), aproksymujące zespolony IOR metalu bez podawania n i k wprost (Schlick + edge tint, Gulbrandsen 2014).</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Ten rozdział zajął się jedną warstwą specularu. Rozdział 15 dokłada warstwy nad i pod nią — coat, sheen/fuzz i transmission — i pokazuje, że ich kolejność w stosie nie jest kosmetyczna, tylko decyduje o tym, czy materiał w ogóle zachowuje energię.</p>
   </div>
 
 <div class="site-nav chapter-nav">

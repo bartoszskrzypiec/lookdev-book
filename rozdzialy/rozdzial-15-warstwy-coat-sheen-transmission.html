@@ -20,16 +20,75 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 15/24</span><span>CZĘŚĆ · V</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>COAT · druga warstwa specularu</span><span>SHEEN/FUZZ · kąt, nie roughness</span><span>TRANSMISSION · 1 suwak → 2 gainy</span>
   </div>
 
   <div class="eyebrow">Rozdział 15 / Shading produkcyjny</div>
   <h1>Warstwy: coat, sheen, transmission</h1>
   <p class="subtitle">Ułożenie coatu nad bazowym BRDF-em w złej kolejności łamie zachowanie energii tak subtelnie, że zobaczysz to dopiero na turntable'u pod ostrym światłem.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li><span class="term-amber">Coat/Clearcoat</span> to druga, niezależna warstwa specularu <em>nad</em> bazowym BRDF-em — światło przechodzi przez nią dwa razy (wchodząc i wychodząc), więc jej pozycja w stosie, nie tylko jej istnienie, decyduje o wyniku.</li>
+      <li><span class="term-cyan">Sheen</span> (Arnold) i <span class="term-cyan">Fuzz</span> (PxrSurface) to ta sama idea — poświata na krawędziach włókien pod kątem — ale sparametryzowana inaczej: roughness kontra kąt w stopniach.</li>
+      <li><span class="term-violet">Transmission</span> w Arnoldzie to jeden suwak, bo odbicie i załamanie to ten sam fizyczny event. PxrSurface rozdziela je na dwa niezależne gainy — pominięcie jednego daje szkło, które od razu wygląda fałszywie.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Coat / Clearcoat</div>
+    <h2>Druga warstwa specularu, nie kosmetyczny dodatek</h2>
+    <p>Lakier samochodowy, poler na drewnie, cienka warstwa potu na skórze — mają przezroczystą warstwę <em>nad</em> materiałem bazowym, z własnym, zwykle bardzo gładkim specularem. Produkcyjne shadery nie symulują tego w pełni fizycznie (pełna symulacja dwuwarstwowa z dwoma Fresnelami i śledzeniem promienia między warstwami jest w raytracing-book, Dodatku A) — zamiast tego po prostu <em>dodają</em> drugi, niezależny lob specular na wierzch pełnego BRDF-u bazy, ważony własnym Fresnelem. Prostsze niż prawdziwa symulacja, wizualnie bardzo bliskie.</p>
+    <a class="inline-deeper" href="https://bartoszskrzypiec.github.io/raytracing-book/dodatki/dodatek-a-materialy.html">↓ raytracing-book, Dodatek A — pełny model dwuwarstwowy: dwa Fresnele, przekrój warstw</a>
+    <p><code>coat</code> (Arnold) i <strong>Clearcoat</strong> (PxrSurface) mają własny Face/Edge Color, roughness i IOR (domyślnie ≈1,5 w obu) — całkowicie niezależne od głównej warstwy specular. To właśnie ta niezależność jest źródłem błędu z zajawki tego rozdziału: coat leży <em>nad</em> bazowym BRDF-em, więc każdy foton, który dociera do bazy i wraca, przechodzi przez coat dwukrotnie. Jeśli coat jest ułożony w stosie poniżej bazy zamiast powyżej — albo jeśli jego własny Fresnel jest źle skalibrowany — całość nadal renderuje się bez błędu, tylko subtelnie łamie bilans energii: powierzchnia oddaje więcej światła, niż na nią padło. Różnicy nie widać na pojedynczym, statycznym renderze pod miękkim światłem; widać ją dopiero na turntable'u, pod ostrym kierunkowym światłem, gdzie błysk coatu i błysk bazy nakładają się pod różnymi kątami.</p>
+    <p>Osobna pułapka domyślnych wartości: <code>coat_roughness</code> w Arnoldzie domyślnie wynosi 0,1, ale Clearcoat Roughness w PxrSurface domyślnie to <strong>0,0</strong> — idealne lustro. Na chropowatej bazie to często niezauważalne (chropowatość bazy i tak dominuje odbiór), ale na gładkiej, gdzie coat ma być głównym źródłem połysku, idealnie ostry coat wygląda nienaturalnie szklano, dopóki nie ustawisz roughness ręcznie.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Sheen / Fuzz</div>
+    <h2>Ta sama poświata, inna jednostka</h2>
+    <p><code>sheen</code>/<code>sheen_color</code> w Arnoldzie i <strong>Fuzz Gain</strong>/<strong>Fuzz Color</strong> w PxrSurface robią dokładnie to samo: symulują delikatną, rozproszoną poświatę na krawędziach cienkich włókien (aksamit, kurz, wełna) pod kątem, którego zwykły specular nie łapie — to bezpośrednia zamiana 1:1. Różnica siedzi w kontrolowaniu jej „miękkości”. Arnold używa <code>sheen_roughness</code>, tej samej jednostki co reszta warstw. PxrSurface używa <strong>Fuzz Cone Angle</strong> — nie roughness, tylko kąt w stopniach (domyślnie 8°), opisujący, jak daleko od powierzchni „odchylają się" umowne włókna: wąski stożek = włókna postawione prosto, ciasna, wyraźna poświata na krawędzi; szeroki stożek = włókna leżące płasko, szeroka, rozmyta łuna.</p>
+    <div class="formula">Fuzz Cone Angle ≈ 32 · Sheen Roughness<span class="sub">przybliżone przeliczenie między jednostkami Arnolda i PxrSurface — punkt startowy do dalszego strojenia na oko, nie gwarancja identycznego wyglądu</span></div>
+    <div class="worked">
+      <div class="wlabel">Policzone: sheen_roughness = 0,3 jako Fuzz Cone Angle</div>
+      <div class="step"><span class="k">sheen_roughness</span> = <span class="v">0,3</span></div>
+      <div class="step"><span class="k">Fuzz Cone Angle</span> = 32 × 0,3 = <span class="v">9,6°</span></div>
+      <div class="result">Blisko domyślnego 8° PxrSurface — dobry punkt startowy dla wełny i podobnych tkanin, dalej strojony na oko pod docelowym oświetleniem (Rozdział 19 wraca do tego przy tkaninach).</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Transmission / szkło</div>
+    <h2>Jeden suwak, dwa gainy</h2>
+    <p>W Arnoldzie <code>transmission</code> to jeden suwak, bo odbicie i załamanie na granicy dwóch ośrodków to dosłownie ten sam event fizyczny — Fresnel decyduje, jaki ułamek się odbija, a reszta się załamuje (raytracing-book, Rozdział 7). PxrSurface rozdziela to na dwa niezależne gainy: <strong>Reflection Gain</strong> (światło odbite) i <strong>Refraction Gain</strong> (światło przechodzące na wylot). To rozdzielenie jest wygodne przy stylizacji, ale kryje najczęstszą pułapkę tej warstwy: ustawienie tylko Refraction Gain, bez Reflection Gain, daje szkło, które nic nie odbija — i wygląda fałszywie natychmiast, bo każde realne szkło ma choćby słaby błysk odbicia na krawędziach. Konwertując wartość z Arnolda, oba gainy trzeba ustawić na tę samą liczbę co dawny <code>transmission</code>.</p>
+    <p><code>Thin Walled</code> (Arnold) i <strong>Glass → Thin</strong> (PxrSurface, <code>thinGlass</code>) to ten sam przełącznik: nadal rozdziela odbicie i załamanie poprawnie, ale przestaje zaginać promień <em>przez</em> obiekt — różnica między szybą okienną (thin) a pełną bryłą szkła, przez którą promień faktycznie się łamie po drodze.</p>
+    <p>Kolor transmisji to osobna pułapka. <code>transmission_color</code> zamienia się wprost na <strong>Refraction Color</strong> tylko wtedy, gdy <code>transmission_depth</code> (głębokość absorpcji) wynosi zero. Gdy głębokość jest ustawiona, kolor przestaje być zwykłym barwieniem, a staje się barwą, jaką przyjmuje białe światło po przebyciu tego dystansu w ośrodku — to jest absorpcja rządząca się prawem Beera-Lamberta (raytracing-book, Rozdział 18 — wolumetria), i w PxrSurface trafia do zupełnie innego pola: <strong>Interior → Extinction</strong>. Ta sama butelka szkła w cienkiej i grubej wersji potrzebuje różnych wartości Extinction, żeby dać ten sam kolor — jedna wartość <code>transmission_depth</code> w Arnoldzie robiła to automatycznie dla obu grubości; w PxrSurface trzeba przeliczyć ręcznie.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Energia raz jeszcze</div>
+    <h2>Coat przyciemnia, transmission zmniejsza diffuse — kto o tym pamięta</h2>
+    <p>Rozdział 13 wprowadził zasadę: Arnold pilnuje bilansu energii między warstwami automatycznie, PxrSurface nie. Tu widać to konkretnie na dwóch przykładach z tego rozdziału. Dołożenie <code>coat</code> w Arnoldzie automatycznie przyciemnia to, co jest pod spodem (część światła zostaje zużyta przez samą warstwę coatu, zanim dotrze do bazy) — dołożenie Clearcoat w PxrSurface tego nie robi samo, warstwy są policzone niezależnie i się sumują. Włączenie <code>transmission</code> w Arnoldzie automatycznie zmniejsza wagę diffuse (światło, które przechodzi na wylot, nie może jednocześnie rozproszyć się jako diffuse) — w PxrSurface znowu trzeba to zrobić ręcznie. Ta sama reguła z Rozdziału 13 stosuje się tu bez wyjątku: za każdym razem, gdy podnosisz gain jednej warstwy, sprawdź, czy któraś warstwa pod nią nie powinna zejść w dół.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Coat / Clearcoat</dt>
+      <dd>Druga, niezależna warstwa specularu nad bazowym BRDF-em; leży nad bazą, więc światło przechodzi przez nią dwukrotnie.</dd>
+      <dt>Sheen / Fuzz</dt>
+      <dd>Rozproszona poświata na krawędziach cienkich włókien pod kątem; Arnold steruje roughness, PxrSurface kątem stożka (Fuzz Cone Angle).</dd>
+      <dt>Transmission / Glass</dt>
+      <dd>Warstwa przepuszczająca światło na wylot; Arnold jednym suwakiem, PxrSurface osobnymi gainami odbicia i załamania.</dd>
+      <dt>Extinction (Interior)</dt>
+      <dd>PxrSurface: absorpcja światła wewnątrz ośrodka wg prawa Beera-Lamberta, odpowiednik <code>transmission_depth</code> + <code>transmission_color</code> Arnolda po przeliczeniu.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Warstwy tego rozdziału dotyczą powierzchni. Rozdział 16 schodzi pod nią — subsurface scattering, promień per kanał RGB i pułapka skali sceny, która zamienia skórę w wosk albo plastik.</p>
   </div>
 
 <div class="site-nav chapter-nav">
