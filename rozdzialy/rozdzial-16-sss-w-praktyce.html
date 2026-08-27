@@ -12,16 +12,187 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 16/24</span><span>CZĘŚĆ · V</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>MFP · 1/σ_t</span><span>ARNOLD · subsurface_radius × subsurface_scale</span><span>RENDERMAN · diffuseMeanFreePath / unitLength</span>
   </div>
 
   <div class="eyebrow">Rozdział 16 / Shading produkcyjny</div>
   <h1>Subsurface scattering w praktyce</h1>
   <p class="subtitle">Dodatek AG w poprzedniej książce pokazał, czym jest random walk. Tu jest pytanie, które zadaje każdy artysta: jaki promień MFP wpisać, żeby wosk nie wyglądał jak plastik.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li><span class="term-amber">Promień</span> w Arnoldzie i <span class="term-amber">mean free path</span> w RenderManie to ta sama wielkość fizyczna pod dwiema nazwami: przeciętny dystans, jaki foton pokonuje pod powierzchnią, zanim rozproszy się i wróci na zewnątrz.</li>
+      <li>Arnold wystawia ją jako <code>subsurface_radius</code> (per kanał RGB) pomnożony przez osobny <code>subsurface_scale</code>; RenderMan jako <code>diffuseMeanFreePath</code>, skalowane globalnym <code>unitLength</code> sceny — to dwa różne miejsca schowania tego samego przelicznika jednostek.</li>
+      <li>„Wosk zamiast plastiku" to prawie zawsze pomyłka w jednostkach, nie zły gust — wpisany promień, który w rzeczywistości wynosi metry zamiast milimetrów, rozmywa geometrię; promień, który wynosi mikrony zamiast milimetrów, wyłącza SSS niemal całkowicie.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Fizyka</div>
+    <h2>Ta sama wielkość fizyczna, dwa imiona</h2>
+    <p>Dodatek AG w raytracing-book wyprowadza random walk fotonu pod powierzchnią od podstaw: współczynnik rozpraszania σ_s, współczynnik absorpcji σ_a i ich sumę, współczynnik ekstynkcji σ_t = σ_s + σ_a — im większy σ_t, tym gęstszy ośrodek i tym częściej foton zmienia kierunek. Odwrotność tej sumy to dokładnie ta wielkość, którą oba renderery wystawiają artyście jako suwak:</p>
+    <div class="formula">MFP = 1 / σ_t<span class="sub">MFP — <span class="term-amber">mean free path</span> (średnia droga swobodna), przeciętny dystans między dwoma kolejnymi zdarzeniami rozproszenia; σ_t — współczynnik ekstynkcji ośrodka, suma rozpraszania i absorpcji</span></div>
+    <a class="inline-deeper" href="https://bartoszskrzypiec.github.io/raytracing-book/dodatki/dodatek-ag-subsurface-scattering.html">↓ raytracing-book, Dodatek AG — pełne wyprowadzenie: σ_t, albedo, random walk</a>
+    <p>MFP jest zawsze podawany <strong>per kanał</strong> — R, G i B mają różne wartości, bo tkanka (czy dowolny inny ośrodek rozpraszający) pochłania poszczególne długości fali z różną siłą. W skórze hemoglobina i melanina pochłaniają zielone i niebieskie fotony znacznie szybciej niż czerwone, więc czerwone światło przenika głębiej i wraca dalej od punktu wejścia, zanim je zaabsorbuje ośrodek — to właśnie ten efekt widać jako czerwonawą poświatę na uszach czy palcach pod silnym podświetleniem (rim light). Skoro promień/MFP to bezpośrednio odwrotność σ_t, wyższa wartość zawsze oznacza <em>mniej</em> gęsty, bardziej przenikliwy ośrodek — niższa wartość gęstszy, bardziej nieprzezroczysty.</p>
+    <a class="inline-deeper" href="https://bartoszskrzypiec.github.io/raytracing-book/dodatki/dodatek-ao-oscylator-elektronowy.html">↓ raytracing-book, Dodatek AO — dlaczego hemoglobina i melanina akurat te długości fal pochłaniają</a>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Arnold</div>
+    <h2>subsurface_radius i pułapka subsurface_scale</h2>
+    <p><span class="term-cyan">aiStandardSurface</span> (Rozdział 13) wystawia SSS jako osobną warstwę shadera, mieszaną z Lambertem, z sześcioma parametrami, które warto umieć czytać wprost jako wielkości fizyczne, a nie jako abstrakcyjne suwaki:</p>
+
+    <div class="table-frame">
+      <table class="data-table">
+        <thead>
+          <tr><th>Parametr</th><th>Znaczenie</th><th class="num">Domyślnie</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>subsurface</code></td><td>Waga: 0 = czysty Lambert, 1 = czysty SSS.</td><td class="num">0</td></tr>
+          <tr><td><code>subsurface_color</code></td><td>Albedo pojedynczego rozproszenia — barwa/jasność bazowa, osobna od promienia.</td><td class="num">—</td></tr>
+          <tr><td><code>subsurface_radius</code></td><td>MFP per kanał RGB — dystans, na jaki światło rozprasza się pod powierzchnią, zanim wróci na zewnątrz.</td><td class="num">(1; 1; 1)</td></tr>
+          <tr><td><code>subsurface_scale</code></td><td>Mnożnik promienia — tu jest schowana konwersja jednostek sceny na rzeczywiste centymetry/milimetry.</td><td class="num">1</td></tr>
+          <tr><td><code>subsurface_type</code></td><td><code>diffusion</code> (tania aproksymacja dipolowa) / <code>randomwalk</code> (prawdziwy random walk, poprawny przy cienkiej geometrii i wklęsłościach) / <code>randomwalk_v2</code> (dokładniejsza saturacja barwy dla obiektów mocno przezroczystych, kosztowniejszy).</td><td class="num">randomwalk</td></tr>
+          <tr><td><code>subsurface_anisotropy</code></td><td>Współczynnik Henyeya-Greensteina g (−1…1); działa tylko z <code>randomwalk</code>/<code>randomwalk_v2</code>.</td><td class="num">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption">Parametry <code>aiStandardSurface</code>, gałąź Subsurface. Domyślny <code>subsurface_type</code> to <code>randomwalk</code> — dokładniejszy odpowiednik random walk z Dodatku AG, w przeciwieństwie do starszej aproksymacji dyfuzyjnej.</p>
+
+    <p>Kluczowy szczegół: <code>subsurface_radius</code> sam w sobie nie mówi nic o rzeczywistej odległości — to <code>subsurface_scale</code> decyduje, czym jest jedna jednostka promienia w danej scenie. Dokumentacja Arnolda podaje wprost: przy scenie zbudowanej w metrach, <code>subsurface_scale = 0,01</code> sprawia, że liczby wpisane w <code>subsurface_radius</code> zaczynają oznaczać centymetry.</p>
+
+    <div class="worked">
+      <div class="wlabel">Policzone: subsurface_radius skóry w scenie zbudowanej w metrach</div>
+      <div class="step"><span class="k">Cel fizyczny</span> — chcemy, by promień R·G·B wynosił <span class="v">0,37 cm · 0,14 cm · 0,07 cm</span></div>
+      <div class="step"><span class="k">Scena</span> — 1 jednostka sceny = 1 m → <span class="k">subsurface_scale</span> = <span class="v">0,01</span> (jednostka promienia zaczyna znaczyć 1 cm)</div>
+      <div class="step"><span class="k">subsurface_radius</span> = <span class="v">(0,37; 0,14; 0,07)</span> — wpisane wprost, bo scale już przeliczył jednostki</div>
+      <div class="step"><span class="k">Rzeczywisty promień</span> = subsurface_radius · subsurface_scale = 0,37 cm, 0,14 cm, 0,07 cm</div>
+      <div class="result">To niemal dokładnie te same liczby fizyczne, co zmierzona wartość diffuseMeanFreePath dla materiału „Skin1" w tabeli RenderMana niżej: 3,67 mm / 1,37 mm / 0,68 mm.</div>
+      <div class="check">Sprawdzenie: 0,37 cm = 3,7 mm ≈ 3,67 mm; 0,14 cm = 1,4 mm ≈ 1,37 mm; 0,07 cm = 0,7 mm ≈ 0,68 mm — zgodność w granicach zaokrągleń, bo to ta sama wielkość fizyczna, tylko inaczej sparametryzowana w dwóch silnikach.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: RenderMan</div>
+    <h2>diffuseMeanFreePath i unitLength</h2>
+    <p><span class="term-violet">PxrSurface</span> (i PxrLayerSurface, Rozdział 13) nazywa tę samą wielkość dosłownie: <code>diffuseMeanFreePath</code> (w skrócie dmfp) to kolor per kanał, podawany w milimetrach i skalowany globalną własnością <code>unitLength</code> sceny — jednym przelicznikiem dla całego shadera, zamiast osobnego mnożnika przy każdym parametrze.</p>
+
+    <div class="table-frame">
+      <table class="data-table">
+        <thead>
+          <tr><th>Parametr</th><th>Znaczenie</th><th>Jednostka / skalowanie</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>diffuseMeanFreePath</code></td><td>Dosłowna średnia droga swobodna fotonu, per kanał RGB.</td><td>mm, skalowane przez <code>unitLength</code> sceny</td></tr>
+          <tr><td><code>subsurfaceColor</code></td><td>Albedo pojedynczego rozproszenia — jasność bazowa, w parze z dmfp.</td><td>bezwymiarowe, 0–1</td></tr>
+          <tr><td>model rozpraszania</td><td>Jensen Dipole / d'Eon Better Dipole / Burley Normalized (tanie aproksymacje) / Multiple Mean Free Paths / Path Traced (dokładny random walk, odpowiednik Arnoldowego <code>randomwalk</code>).</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption">Parametry PxrSurface, gałąź Subsurface. Model Path Traced jest kosztowniejszy i bardziej szumiący niż warianty dipolowe — dokładnie ten sam kompromis co Arnoldowy <code>randomwalk</code> kontra <code>diffusion</code>.</p>
+
+    <p>Zamiast zgadywać wartości dmfp, warto zacząć od zmierzonych danych referencyjnych — klasyczny zestaw z pracy Jensena i in. o transporcie światła podpowierzchniowego podaje albedo i dmfp dla kilku realnych materiałów:</p>
+
+    <div class="table-frame">
+      <table class="data-table">
+        <thead>
+          <tr><th>Materiał</th><th class="num">Albedo (R · G · B)</th><th class="num">dmfp mm (R · G · B)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Skóra (Skin1)</td><td class="num">0,436 · 0,227 · 0,131</td><td class="num">3,67 · 1,37 · 0,68</td></tr>
+          <tr><td>Mleko pełnotłuste</td><td class="num">0,908 · 0,881 · 0,759</td><td class="num">10,90 · 6,58 · 2,51</td></tr>
+          <tr><td>Marmur</td><td class="num">0,830 · 0,791 · 0,753</td><td class="num">8,51 · 5,57 · 3,95</td></tr>
+          <tr><td>Jabłko</td><td class="num">0,846 · 0,841 · 0,528</td><td class="num">6,96 · 6,40 · 1,90</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption">Zmierzone wartości referencyjne (Jensen i in., „A Practical Model for Subsurface Light Transport"). Punkt startowy do dalszego strojenia, nie gotowy wynik — geometria, oświetlenie i skala kamery zawsze wymagają korekty.</p>
+
+    <div class="diagram-frame">
+      <div class="diagram-hud"><span>Radius.per.channel</span><span>profil rozpraszania skóry (Skin1): R przenika głębiej niż B</span></div>
+      <svg viewBox="0 0 620 320" xmlns="http://www.w3.org/2000/svg">
+        <line x1="60" y1="40" x2="60" y2="280" stroke="#2a2f38" stroke-width="1.4"/>
+        <line x1="60" y1="280" x2="580" y2="280" stroke="#2a2f38" stroke-width="1.4"/>
+        <g font-family="IBM Plex Mono" font-size="10" fill="#8b909b">
+          <text x="60" y="298" text-anchor="middle">0</text>
+          <text x="190" y="298" text-anchor="middle">2</text>
+          <text x="320" y="298" text-anchor="middle">4</text>
+          <text x="450" y="298" text-anchor="middle">6</text>
+          <text x="580" y="298" text-anchor="middle">8 mm</text>
+          <text x="60" y="32" text-anchor="start">względna intensywność rozproszonego światła</text>
+        </g>
+        <polyline points="60,40 125,97 190,141 255,174 320,199 385,219 450,233 515,245 580,253" fill="none" stroke="#e8a33d" stroke-width="2.2"/>
+        <polyline points="60,40 125,164 190,224 255,253 320,267 385,274 450,277 515,279 580,279" fill="none" stroke="#4fc3c0" stroke-width="2.2"/>
+        <polyline points="60,40 125,225 190,267 255,277 320,279 385,280 450,280 515,280 580,280" fill="none" stroke="#9c82d8" stroke-width="2.2"/>
+        <g font-family="IBM Plex Mono" font-size="11">
+          <circle cx="380" cy="60" r="5" fill="#e8a33d"/><text x="392" y="64" fill="#e8a33d">R — dmfp 3,67 mm</text>
+          <circle cx="380" cy="80" r="5" fill="#4fc3c0"/><text x="392" y="84" fill="#4fc3c0">G — dmfp 1,37 mm</text>
+          <circle cx="380" cy="100" r="5" fill="#9c82d8"/><text x="392" y="104" fill="#9c82d8">B — dmfp 0,68 mm</text>
+        </g>
+      </svg>
+      <div class="diagram-caption">Krzywe zaniku intensywności rozproszonego światła w funkcji odległości od punktu wejścia, dla mierzonych wartości dmfp skóry z tabeli wyżej. Im większy MFP, tym wolniejszy zanik i tym dalej sięga kanał.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Porównanie</div>
+    <h2>Dwa silniki, jedna wielkość fizyczna</h2>
+    <p>Zestawione obok siebie, oba systemy parametrów mówią dokładnie to samo — różnią się tylko tym, gdzie chowają konwersję jednostek sceny:</p>
+    <div class="table-frame">
+      <table class="data-table">
+        <thead>
+          <tr><th>Pojęcie</th><th>Arnold (aiStandardSurface)</th><th>RenderMan (PxrSurface)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>MFP per kanał</td><td><code>subsurface_radius</code></td><td><code>diffuseMeanFreePath</code> (dmfp)</td></tr>
+          <tr><td>Konwersja jednostek sceny</td><td>osobny mnożnik <code>subsurface_scale</code></td><td>globalna własność <code>unitLength</code></td></tr>
+          <tr><td>Albedo pojedynczego rozproszenia</td><td><code>subsurface_color</code></td><td><code>subsurfaceColor</code></td></tr>
+          <tr><td>Dokładny model transportu</td><td><code>subsurface_type = randomwalk</code></td><td>model <code>Path Traced</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-caption">Ten sam artykuł Jensena i in., z tej samej mierzonej próbki skóry, nadaje się jako punkt startowy w obu silnikach — trzeba tylko wiedzieć, gdzie w każdym z nich wpisać przelicznik jednostek.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Najczęstszy błąd</div>
+    <h2>Pułapka skali: dlaczego wosk zamiast plastiku</h2>
+    <p>Najczęstszy błąd przy strojeniu SSS nie jest artystyczny — to pomyłka w jednostkach, ukryta za osobnym mnożnikiem (<code>subsurface_scale</code>) albo globalną własnością sceny (<code>unitLength</code>), o której łatwo zapomnieć, przenosząc wartości między silnikami albo między scenami w innej skali.</p>
+    <div class="worked">
+      <div class="wlabel">Policzone: te same liczby dmfp, zapomniany scale</div>
+      <div class="step"><span class="k">Artysta przepisuje</span> subsurface_radius = <span class="v">(3,67; 1,37; 0,68)</span> wprost z tabeli dmfp RenderMana (wartości w mm)</div>
+      <div class="step"><span class="k">Scena w Arnoldzie</span> zbudowana w metrach, <span class="k">subsurface_scale</span> pozostawiony na domyślnym <span class="v">1</span> — bez przeliczenia</div>
+      <div class="step"><span class="k">Rzeczywisty promień</span> = subsurface_radius · subsurface_scale = 3,67 · 1 = <span class="v">3,67 metra</span> (kanał R)</div>
+      <div class="result">Promień 3,67 metra na twarzy szerokiej na ~15 cm: światło „przenika" praktycznie przez całą głowę, zanim wróci na powierzchnię. Lokalny kontrast znika, forma się rozmywa — efekt wygląda jak przezroczysty wosk albo mydło, nie jak skóra.</div>
+      <div class="check">Poprawka: subsurface_scale = 0,001 (żeby liczby wpisane w mm faktycznie znaczyły milimetry w metrowej scenie) → rzeczywisty promień wraca do 3,67 mm, w realistycznym zakresie.</div>
+    </div>
+    <p>Odwrotny błąd daje odwrotny efekt: promień, który w rzeczywistości wychodzi dziesięć razy za mały (np. mikrony zamiast milimetrów), sprawia, że SSS praktycznie się wyłącza — powierzchnia przestaje przepuszczać jakiekolwiek światło pod sobą i wygląda płasko, matowo, jak pomalowany plastik, dokładnie odwrotnie niż wosk. Oba objawy to ten sam błąd o przeciwnym znaku: promień/MFP przestał odpowiadać realnej skali obiektu. Najbezpieczniejsza obrona to zawsze zacząć od zmierzonej wartości referencyjnej (jak tabela Jensena wyżej) i świadomie przeliczyć ją przez scale/unitLength danej sceny — nie od suwaka na oko.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>MFP (mean free path, średnia droga swobodna)</dt>
+      <dd>Przeciętny dystans, jaki foton pokonuje pod powierzchnią między kolejnymi zdarzeniami rozproszenia. MFP = 1/σ_t.</dd>
+      <dt>σ_t (współczynnik ekstynkcji)</dt>
+      <dd>Suma współczynnika rozpraszania σ_s i absorpcji σ_a — im większy, tym gęstszy, mniej przenikliwy ośrodek (raytracing-book, Dodatek AG).</dd>
+      <dt>subsurface_radius (Arnold)</dt>
+      <dd>MFP per kanał RGB, w jednostkach zależnych od <code>subsurface_scale</code>.</dd>
+      <dt>subsurface_scale (Arnold)</dt>
+      <dd>Mnożnik promienia — konwertuje jednostki sceny na rzeczywiste centymetry/milimetry.</dd>
+      <dt>diffuseMeanFreePath / dmfp (RenderMan)</dt>
+      <dd>MFP per kanał RGB w PxrSurface, podawane w mm, skalowane przez <code>unitLength</code> sceny.</dd>
+      <dt>Albedo pojedynczego rozproszenia</dt>
+      <dd>Jasność/barwa bazowa rozpraszania, osobna od promienia — <code>subsurface_color</code> w Arnoldzie, <code>subsurfaceColor</code> w RenderManie.</dd>
+      <dt>randomwalk / Path Traced</dt>
+      <dd>Dokładne modele transportu światła pod powierzchnią (prawdziwy random walk), w opozycji do tańszych aproksymacji dipolowych.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Ten rozdział dał pojedynczy knob — promień/MFP jednej warstwy SSS. Rozdział 17 pokazuje, że skóra nigdy nie jest jedną warstwą: to stos kilku warstw rozpraszania o różnej głębokości, przykryty osobnym specularem, z detalami takimi jak pieprzyki i pory, które psują iluzję, jeśli są zbyt regularne.</p>
   </div>
 
 <div class="site-nav chapter-nav">
