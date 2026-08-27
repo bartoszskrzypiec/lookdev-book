@@ -19,16 +19,73 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 24/24</span><span>CZĘŚĆ · Epilog</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>R.1 → R.23 · jedna scena</span><span>ASSET · kurtka, suwak, szalik, dłonie</span><span>WYNIK · zatwierdzony look</span>
   </div>
 
   <div class="eyebrow">Rozdział 24 / Epilog</div>
   <h1>Epilog: od pustej sceny do zatwierdzonego looku</h1>
   <p class="subtitle">Zaczęliśmy od pytania „jak to ma wyglądać”. Kończymy na zatwierdzonym looku, przechodząc raz jeszcze przez każdy rozdział tej książki na jednej, konkretnej scenie.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>Ta książka miała trzy akty: <strong>percepcja i liniowe światło</strong> (R.1–6), <strong>grading jako matematyka, nie gust</strong> (R.7–10), <strong>materiały i ocena looku w praktyce</strong> (R.11–23). Ten epilog przechodzi przez wszystkie trzy na jednej scenie, w kolejności, w jakiej naprawdę się dzieją na produkcji.</li>
+      <li>Asset testowy: postać w skórzanej kurtce z mosiężnym suwakiem, wełnianym szalikiem, i odkrytymi dłońmi/twarzą — cztery różne rodziny materiałów (dielektryk, metal, tkanina, organika) w jednej scenie, żeby żaden rozdział nie został bez zastosowania.</li>
+      <li>Żaden z tych kroków nie jest opcjonalny ani wykonywany raz na zawsze — to pętla: oświetlenie zmienia to, co widać w materiale, ocena looku cofa Cię do gradingu albo do parametru shadera, a AOV mówią, gdzie dokładnie szukać, zamiast zgadywać.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Akt I: Zanim jest kolor</div>
+    <h2>Dlaczego zaczynamy od linear light, nie od koloru</h2>
+    <p>Pusta scena, pierwszy import assetu. Zanim ktokolwiek dotknie shadera, dwie decyzje muszą już być podjęte: w jakiej przestrzeni barw renderer <em>liczy</em> shading (Rozdział 3 — linear light workflow, working space ACEScg z Rozdziału 4), i przez jaki config OCIO przechodzi każdy odczyt tekstury i każdy podgląd na ekranie (Rozdział 6). To nie jest formalność do odhaczenia — jeśli working space jest źle ustawiony, żadna liczba z dalszych rozdziałów nie będzie znaczyć tego, co powinna znaczyć. Rozdział 2 tłumaczył <em>dlaczego</em> w ogóle to ma znaczenie: oko i ekran widzą jasność inaczej niż matematyka renderera ją liczy, i cała reszta książki bierze się z tej jednej różnicy. Rozdział 5 domyka ostatnią lukę — krzywe transferu, które tłumaczą liczbę zapisaną w pliku na liczbę liniową, zanim cokolwiek innego się zacznie.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Akt II: Grading jako język</div>
+    <h2>Poprawiasz podgląd, nie fizykę materiału</h2>
+    <p>Pierwszy podgląd sceny prawie nigdy nie wygląda dobrze od razu — nie dlatego, że materiały są źle zbudowane, tylko dlatego, że ekspozycja i kontrast review'u jeszcze nie są dostrojone. Tu wchodzi grading z Rozdziałów 7–9: offset, gain i gamma jako trzy niezależne operatory (Rozdział 7), ASC CDL jako wspólny język między DIT-em na planie a kolorystą w gradingu (Rozdział 8), ekspozycja liczona w stopach i kontrast liczony wokół pivotu, nie wokół zera (Rozdział 9). Rozdział 10 dokłada ostatni element — saturację, obrót barwy i białe wyważenie — operatory, które jako pierwsze świadomie patrzą na relację między kanałami R, G i B, a nie tylko na wartość każdego z osobna. Kluczowe rozróżnienie z tego aktu: grading na tym etapie poprawia to, <em>jak patrzysz</em> na scenę, nie to, z czego zbudowany jest materiał — to dwa różne pokrętła, i mylenie ich to najczęstszy błąd początkującego lookdev artysty.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Akt III: Materiały</div>
+    <h2>Tekstury: zanim jeszcze zbudujesz shader</h2>
+    <p>Zanim którakolwiek mapa trafi do shadera kurtki, każdy plik tekstury musi mieć poprawnie ustawiony przełącznik kolor/dane z Rozdziału 11 — albedo skóry i wełny jest sRGB, ale roughness, normal i maska metalowego suwaka to surowe dane, których <em>nie wolno</em> dekodować jak koloru. Rozdział 12 dorzuca drugą, równie łatwą do przeoczenia pułapkę: 8-bitowa tekstura w przestrzeni liniowej potrafi rozpaść się na widoczne pasy w cieniach, zanim jeszcze trafi do renderera — dlatego niektóre kanały (displacement, promień SSS) muszą być float, a inne, jak proste albedo, mogą bezpiecznie zostać 8-bitowe.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Akt III: Shader warstwa po warstwie</div>
+    <h2>Skóra kurtki i mosiężny suwak</h2>
+    <p>Rozdział 13 dał wspólny słownik dla obu silników — <code>aiStandardSurface</code> i <code>PxrSurface</code> jako ten sam stos warstw pod dwiema różnymi nazwami. Skórzana kurtka to podręcznikowy dielektryk: niski, bezbarwny Fresnel na powierzchni plus kolorowy diffuse z pigmentu garbowanej skóry pod spodem (Rozdział 14). Mosiężny suwak to metal — zero diffuse, cały kolor w zespolonym IOR specularu, dlatego mosiądz ma swój charakterystyczny żółtawy odcień odbicia, a nie neutralnie srebrny. Nad samą skórą kurtki siada jeszcze cienka, błyszcząca warstwa wosku czy lakieru — coat z Rozdziału 15, ułożony <em>nad</em> bazowym BRDF-em we właściwej kolejności, żeby nie złamać zachowania energii w sposób, który zobaczysz dopiero na turntable'u pod ostrym światłem.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Akt III: Organika</div>
+    <h2>Dłonie i twarz: SSS to nie jeden parametr</h2>
+    <p>Odkryta skóra dłoni i twarzy to jedyne miejsce w tej scenie, gdzie potrzebny jest pełny aparat z Rozdziałów 16–17: promień SSS per kanał RGB w Arnoldzie albo <code>diffuseMeanFreePath</code> w RenderManie — dwie nazwy tej samej wielkości fizycznej, którą trzeba świadomie skalować do jednostek sceny, żeby dłoń nie wyglądała jak wosk albo jak plastik. Skóra to w dodatku nie jeden materiał, tylko stos warstw o różnej głębokości rozpraszania, z osobnym, cieńszym specularem na wierzchu i drobnymi niedoskonałościami (pieprzyki, pory), które muszą być nieregularne, żeby iluzja się nie rozsypała pod bliskim planem.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Akt III: Reszta rodziny materiałów</div>
+    <h2>Suwak z bliska, szalik, guziki</h2>
+    <p>Rozdział 18 wraca do suwaka z bliska — szczotkowany metal ma kierunkowy, rozciągnięty błysk zamiast kołowego, bo roughness nie jest już jedną liczbą, tylko dwiema, wzdłuż i w poprzek rys szczotkowania. Szklane guziki płaszcza łamią to samo założenie transmisji co szkło w witrynie sklepu — potrzebują transmission_color i transmission_depth świadomie dobranych do grubości obiektu, nie domyślnej wartości. Wełniany szalik z Rozdziału 19 to sheen (Arnold) albo fuzz (RenderMan) — miękka, rozproszona poświata na krawędziach włókien, sterowana zupełnie innym parametrem niż specular reszty materiałów w scenie.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Akt III: Detal, który nie jest w pliku</div>
+    <h2>Szwy i ziarno skóry</h2>
+    <p>Szwy, ziarno skóry i drobne pofałdowania kurtki nigdy nie siedzą w geometrii bazowej — dochodzą displacementem z Rozdziału 20, obliczanym w czasie renderu z tekstury wysokościowej. To jest dokładnie to miejsce, gdzie pole, którego żaden preset nie zgadnie (padding albo bound, zależnie od silnika) trzeba wypełnić ręcznie — za mała wartość i detal zostaje ucięty na krawędzi bounding boxa, za duża i pamięć znika bez potrzeby.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Akt III: Ocena</div>
+    <h2>HDRI, turntable, i AOV, kiedy coś jest nie tak</h2>
+    <p>Cała ta konstrukcja jest oceniana pod konkretnym, skalibrowanym rigiem HDRI (Rozdział 21) — inny rig ze studia, inny z zachmurzonego nieba, i to, co widać, zmienia się za każdym razem, mimo że shader się nie zmienił. Turntable z Rozdziału 22 to test, który wyłapuje materiał wyglądający świetnie z jednego kąta, a rozpadający się pod innym światłem — coat na kurtce albo anizotropia na suwaku to klasyczne kandydatury do niespodzianek przy obrocie. Kiedy coś w końcu wygląda źle — powiedzmy, specular na mosiężnym suwaku jest podejrzanie za jasny — pytanie z Rozdziału 23 nie brzmi „który suwak zmienić”, tylko „w którym AOV widać winowajcę”: rozbicie na diffuse/specular/coat/SSS mówi wprost, czy problem jest w Fresnelu metalu, w oświetleniu, czy w gradingu z Aktu II, do którego być może trzeba wrócić.</p>
+  </div>
+
+  <div class="closing">
+    <p>Dwadzieścia trzy rozdziały, jedna kurtka, jeden suwak, jeden szalik i para dłoni — i każdy z nich przeszedł przez tę samą pętlę: linear light, grading, tekstury, warstwy shadera, ocena pod światłem, poprawka, jeszcze raz. To jest cała treść lookdevu jako dyscypliny: nie jednorazowa recepta, tylko powtarzalny proces, który działa identycznie niezależnie od tego, czy materiał na ekranie to skóra, mosiądz, wełna czy szkło. Dodatki A–W czekają tam, gdzie ten epilog (i każdy rozdział przed nim) musiał zatrzymać się na wzorze i przykładzie koncepcyjnym, zamiast schodzić w pełne wyprowadzenie.</p>
+    <div class="sign">Koniec części głównej — dalej są dodatki</div>
   </div>
 
 <div class="site-nav chapter-nav">

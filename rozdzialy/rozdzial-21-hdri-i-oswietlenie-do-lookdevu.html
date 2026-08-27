@@ -20,16 +20,61 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 21/24</span><span>CZĘŚĆ · VII</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>RIG · HDRI + referencyjne kule</span><span>ARNOLD · skydome_light</span><span>RENDERMAN · PxrDomeLight</span>
   </div>
 
   <div class="eyebrow">Rozdział 21 / Oświetlenie i review</div>
   <h1>HDRI i oświetlenie do lookdevu</h1>
   <p class="subtitle">Ten sam materiał wygląda inaczej pod HDRI ze studia i pod tym z zachmurzonego nieba — dobór i kalibracja rigu to połowa pracy nad lookiem, nie dodatek do niej.</p>
 
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>Materiał zbudowany pod jednym HDRI może wyglądać zupełnie inaczej pod drugim — rig oświetleniowy to <span class="term-amber">zmienna niezależna</span> od shadera, nie jego dopełnienie.</li>
+      <li>Dobry rig lookdevowy to zwykle nie „jedno duże, ładne HDRI", tylko <span class="term-cyan">skalibrowany, powtarzalny zestaw</span> — neutralne środowisko studyjne plus referencyjne kule (chrome i szara), wybrane pod spójność ocen, nie pod realizm konkretnej sceny.</li>
+      <li>Oba renderery czytają HDRI przez dome light (Arnold <code>skydome_light</code>, RenderMan <code>PxrDomeLight</code>) z rotacją, ekspozycją i widocznością dla kamery jako głównymi pokrętłami — ale prawdziwa praca kalibracyjna dzieje się przy <em>doborze</em> HDRI, nie w parametrach samego node'a światła.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Dlaczego HDRI</div>
+    <h2>Jedna tekstura zamiast dziesiątek świateł</h2>
+    <p>Prawdziwe odbicia specularne pokazują całe otoczenie — nie jeden punkt światła, tylko każdy kierunek, z którego cokolwiek świeci. HDRI (obraz o wysokim zakresie dynamiki, owijający scenę jako sfera albo kopuła) daje to za darmo w jednej teksturze: realistyczne, wielokierunkowe oświetlenie i odbicia, które setką ręcznie ustawionych świateł punktowych dałoby się odtworzyć tylko w przybliżeniu, i to kosztem znacznie większego nakładu pracy. Dlatego HDRI jest standardowym fundamentem oświetlenia lookdevowego — nie dlatego, że jest „ładne", tylko dlatego, że niesie informację o kierunkowości światła, której żaden pojedynczy light nie ma.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Rig</div>
+    <h2>Co naprawdę wchodzi w skład rigu lookdevowego</h2>
+    <p>Rig do oceny materiału różni się celem od rigu do finalnego oświetlenia shota (Rozdział 1 rozdzielił te dwie role) — nie ma udawać konkretnej sceny, ma dać powtarzalny, uczciwy test materiału w izolacji. Typowy zestaw: jedno albo dwa neutralne, studyjne HDRI o znanej charakterystyce (rozproszone, bez ostrych, przypadkowych źródeł, które fałszywie podbijają jeden fragment materiału), plus para referencyjnych kul w kadrze — kula chromowana (czyste lustro, pokazuje wprost kształt i intensywność otoczenia) i kula szara (18% szarości, pokazuje, czy ekspozycja review'u w ogóle jest neutralna, zanim ocenisz jakikolwiek kolor materiału na niej). Do tego czasem dochodzi prosty, kierunkowy dokładający się rig trzech świateł (key/fill/rim) — nie zamiast HDRI, tylko obok niego, gdy trzeba pokazać konkretny, ostry błysk, którego samo rozproszone HDRI nie wywoła.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Parametry</div>
+    <h2>skydome_light i PxrDomeLight: mało suwaków, dużo skutków</h2>
+    <p>Oba silniki czytają HDRI przez dome light — Arnold <code>skydome_light</code>, RenderMan <code>PxrDomeLight</code> — i oba mają zaskakująco krótką listę parametrów, które faktycznie zmieniają wygląd materiału: rotację (wyrównuje kierunek głównego światła w HDRI względem kamery — najczęściej dotykany parametr w całym rigu), ekspozycję/intensywność, i widoczność dla promieni kamery. Ta ostatnia jest ważniejsza, niż brzmi: obie dome lighty domyślnie są widoczne wprost w kadrze jako tło, ale wyłączenie tej widoczności (Arnold: parametr <code>camera</code> na dome light; RenderMan: przełącznik widoczności kamery na świetle) pozwala podmienić tło na coś neutralnego (jednolite szare studio) bez zmiany ani jednego fotona oświetlenia materiału — dokładnie to, czego potrzeba do spójnego review'u, gdzie tło nie ma rozpraszać uwagi od samego materiału.</p>
+    <p>Jedna pułapka warta zapamiętania po stronie RenderMana: nie skaluj kopuły PxrDomeLight nierównomiernie w osiach — udokumentowane ostrzeżenie mówi wprost, że zniekształcona kopuła potrafi sprawić, że render w ogóle nie zbiegnie się do czystego obrazu albo będzie zbiegał się drastycznie dłużej.</p>
+  </div>
+
   <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+    <div class="panel-label">Z praktyki</div>
+    <p>Rozdzielczość i jakość samego pliku HDRI mają większy wpływ na wygląd ostrego specularu niż jakikolwiek parametr światła — HDRI w niskiej rozdzielczości rozmywa odbicia w sposób, który łatwo pomylić z błędnie ustawionym roughness materiału. Zanim zaczniesz stroić <code>specular_roughness</code>, sprawdź, czy problem nie leży w samym pliku środowiska.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Dome light</dt>
+      <dd>Światło czytające HDRI jako oświetlenie ze wszystkich kierunków naraz — Arnold <code>skydome_light</code>, RenderMan <code>PxrDomeLight</code>.</dd>
+      <dt>Kula chromowana / szara</dt>
+      <dd>Referencyjne obiekty w kadrze: chromowana pokazuje wprost otoczenie, szara (18%) pokazuje neutralność ekspozycji.</dd>
+      <dt>Widoczność dla kamery (dome light)</dt>
+      <dd>Przełącznik pozwalający oświetlać sceną HDRI bez pokazywania go wprost jako tła w kadrze.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Rig jest gotowy. Rozdział 22 pokazuje, jak faktycznie z niego korzystać — turntable jako test, który wyłapuje materiał wyglądający świetnie z jednego kąta, a rozpadający się pod innym światłem.</p>
   </div>
 
 <div class="site-nav chapter-nav">

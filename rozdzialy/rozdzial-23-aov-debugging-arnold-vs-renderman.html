@@ -19,20 +19,68 @@
 </nav>
 <div class="page">
 
-  <div class="viewport-readout">
-    <span>ROZDZIAŁ · 23/24</span><span>CZĘŚĆ · VII</span><span>STATUS · W PRZYGOTOWANIU</span>
+  <div class=”viewport-readout”>
+    <span>ARNOLD · AOV lobowe, na sztywno</span><span>RENDERMAN · LPE, wyrażenia</span><span>SAMPLING · globalne, nie per-materiał</span>
   </div>
 
-  <div class="eyebrow">Rozdział 23 / Oświetlenie i review</div>
+  <div class=”eyebrow”>Rozdział 23 / Oświetlenie i review</div>
   <h1>AOV, debugging looku, Arnold vs RenderMan</h1>
-  <p class="subtitle">Kiedy look wygląda źle, pytanie nie brzmi „który parametr zmienić”, tylko „w którym AOV widać winowajcę” — a Arnold i RenderMan dochodzą do czystego obrazu różnymi ścieżkami samplingu.</p>
+  <p class=”subtitle”>Kiedy look wygląda źle, pytanie nie brzmi „który parametr zmienić”, tylko „w którym AOV widać winowajcę” — a Arnold i RenderMan dochodzą do czystego obrazu różnymi ścieżkami samplingu.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class=”panel”>
+    <div class=”panel-label”>TL;DR</div>
+    <ul>
+      <li>Domyślny słownik AOV Arnolda jest <span class=”term-amber”>lobowy i ustalony na sztywno</span> (diffuse_direct, specular_indirect, sss, coat...), liczony automatycznie bez żadnej konfiguracji. RenderMan robi z <span class=”term-cyan”>LPE</span> (Light Path Expressions, wyrażeń opisujących ścieżkę światła) główny mechanizm niemal wszystkiego — Arnold ma LPE też, ale jako dodatek nad gotowym zestawem, nie jako podstawę.</li>
+      <li>Diagnoza szumu: rozbij obraz na AOV per lob, sprawdź, <em>który</em> komponent transportu jest szumiący, dopiero potem podnieś liczbę próbek — i to tylko tej jednej warstwy, nie globalnie wszystkiego.</li>
+      <li>Liczba próbek per lob w Arnoldzie (<code>GI_diffuse_samples</code> i podobne) żyje <strong>globalnie</strong>, na node'zie opcji — nie osobno na każdym materiale, wbrew intuicji.</li>
+    </ul>
   </div>
 
-<div class="site-nav chapter-nav">
+  <div class=”section”>
+    <div class=”section-eyebrow”>Etap: Dwa modele</div>
+    <h2>Loby na sztywno kontra wyrażenia</h2>
+    <p>Arnold deklaruje AOV przez tablicę <code>outputs</code> na node'zie opcji (to, co faktycznie trafia do pliku <code>.ass</code>, niezależnie od hosta) — w Mayi <code>aiAOV</code> i AOV Manager to warstwa wygody nad tym samym mechanizmem. Domyślny zestaw jest gotowy bez żadnej konfiguracji: pary direct/indirect dla każdego loba (<code>diffuse_direct</code>/<code>diffuse_indirect</code>, <code>specular_direct</code>/<code>specular_indirect</code>, <code>coat_direct</code>/<code>coat_indirect</code>, <code>transmission_direct</code>/<code>transmission_indirect</code>, <code>sss_direct</code>/<code>sss_indirect</code>, <code>volume_direct</code>/<code>volume_indirect</code>), plus agregaty (<code>diffuse</code>, <code>specular</code>, <code>sss</code>...) i AOV pomocnicze (<code>N</code>, <code>P</code>, <code>Z</code>, <code>motionvector</code>, Cryptomatte). Warto zapamiętać: <code>sss</code> i <code>transmission</code> <strong>nie</strong> są pojedynczymi, płaskimi AOV — mają ten sam podział direct/indirect co diffuse i specular, łatwo o tym zapomnieć, budując panel debugujący na pamięć.</p>
+    <p>RenderMan zamiast gotowego zestawu daje język: LPE opisuje ścieżkę światła jako wyrażenie regularne. Symbole: <code>C</code> — kamera, zawsze początek ścieżki; <code>D</code> — zdarzenie diffuse; <code>S</code> — zdarzenie specular; <code>L</code> — trafienie w światło; <code>O</code> — emisja z obiektu; modyfikatory <code>R</code>/<code>T</code> (odbite/przepuszczone) doklejane do liter zdarzeń. RenderMan pozwala nawet adresować osobno kilka lobów diffuse i specular tego samego materiału (do czterech diffuse, do ośmiu specular), gdy shader je rozróżnia. Ten sam zestaw AOV, który Arnold daje gotowy z automatu, w RenderManie trzeba złożyć samodzielnie z tych symboli.</p>
+  </div>
+
+  <div class=”section”>
+    <div class=”section-eyebrow”>Etap: LPE w Arnoldzie</div>
+    <h2>Arnold ma LPE, ale jako furtkę, nie fundament</h2>
+    <p>Arnold również wspiera Light Path Expressions (od wersji 5.0) — dokładnie po to, żeby wyciągnąć coś, czego gotowy, lobowy zestaw AOV nie przewidział. Różnica filozofii jest tu ważniejsza niż sama obecność LPE po obu stronach: w Arnoldzie stały słownik AOV jest domyślny i zarządzany przez hosta, LPE to świadomie dopisywane rozszerzenie dla nietypowego zapytania. W RenderManie to wyrażenie jest podstawowym, pierwszym narzędziem do niemal wszystkiego, łącznie z tym, co Arnold wystawia gotowe z pudełka.</p>
+  </div>
+
+  <div class=”section”>
+    <div class=”section-eyebrow”>Etap: Diagnoza szumu</div>
+    <h2>Który sampling podnieść, i gdzie on w ogóle mieszka</h2>
+    <p>Arnold rozdziela dwa poziomy samplingu, oba <strong>globalne</strong>, żyjące na node'zie opcji renderu, nie na materiale: <code>AA_samples</code> (próbki na piksel/kamerę — rzeczywista liczba promieni to kwadrat tej wartości) i osobno <code>GI_diffuse_samples</code>, <code>GI_specular_samples</code>, <code>GI_transmission_samples</code>, <code>GI_sss_samples</code>, <code>GI_volume_samples</code> (próbki per lob, też liczone jako kwadrat, „na każdą próbkę kamery”). Częste błędne założenie: że te ostatnie siedzą na <code>standard_surface</code> per materiał — nie, są globalne dla całej sceny. Diagnoza: szum wszędzie (krawędzie, DOF, motion blur) → podnieś <code>AA_samples</code>; szum widoczny tylko w jednym AOV (np. tylko <code>specular_indirect</code>) → podnieś dopasowany <code>GI_*_samples</code>, nie globalny AA.</p>
+    <p>RenderMan rozdziela to inaczej: sampling pikselowy/kamery żyje na hiderze (liczba próbek, adaptacyjność sterowana progiem wariancji pikseli), a sampling per lob — na integratorze <code>PxrPathTracer</code>: światło bezpośrednie przez <code>numLightSamples</code> i <code>numBxdfSamples</code> (łączone przez multiple importance sampling), światło pośrednie przez osobne <code>numDiffuseSamples</code>, <code>numSpecularSamples</code>, <code>numSubsurfaceSamples</code>, <code>numRefractionSamples</code>, gdy tryb samplingu jest ustawiony na ręczny. Ten sam podział koncepcyjny co w Arnoldzie — jedna gałka na piksel, osobne gałki per lob — tylko mieszkający w innym miejscu grafu (integrator zamiast globalnych opcji).</p>
+  </div>
+
+  <div class=”panel practice”>
+    <div class=”panel-label”>Z praktyki</div>
+    <p>Zanim dotkniesz jakiegokolwiek suwaka materiału, wyizoluj AOV specularu samego i sprawdź, czy błysk w ogóle ląduje tam, gdzie geometria i oświetlenie mówią, że powinien — to od razu rozdziela „zły materiał” od „złe światło albo złe normalne”, zanim zaczniesz zgadywać. Oba renderery wystawiają też pomocnicze AOV pod denoisery — albedo, normal i warianty wariancji (<code>*_variance</code> w Arnoldzie, statystyki wariancji per-AOV w RenderManie) — warto mieć je włączone od razu, nie dopiero gdy szum stanie się problemem na koniec produkcji.</p>
+  </div>
+
+  <div class=”panel glossary”>
+    <div class=”panel-label”>Słowniczek</div>
+    <dl>
+      <dt>AOV (Arbitrary Output Variable)</dt>
+      <dd>Dodatkowa warstwa renderu, rozbijająca obraz na komponenty (diffuse, specular, sss...) zamiast jednego zbiorczego beauty.</dd>
+      <dt>LPE (Light Path Expression)</dt>
+      <dd>Wyrażenie opisujące konkretną ścieżkę światła (kamera → zdarzenia → światło) — podstawowy mechanizm AOV w RenderManie, dodatek w Arnoldzie.</dd>
+      <dt>GI_*_samples (Arnold)</dt>
+      <dd>Globalne liczby próbek per lob transportu (diffuse, specular, sss...), na node'zie opcji renderu, nie na materiale.</dd>
+      <dt>PxrPathTracer sampleMode</dt>
+      <dd>Tryb samplingu integratora RenderMana; ręczny odsłania osobne liczby próbek per lob (diffuse, specular, subsurface, refraction).</dd>
+    </dl>
+  </div>
+
+  <div class=”next”>
+    <div class=”panel-label” style=”color:var(--violet);”>Co dalej</div>
+    <p>To był ostatni rozdział techniczny tej książki. Rozdział 24 zamyka całość — jedna scena, jeden asset, przejście przez każdy rozdział po kolei, od pustej sceny do zatwierdzonego looku.</p>
+  </div>
+
+<div class=”site-nav chapter-nav”>
     <a class="nav-prev" href="rozdzial-22-turntable-i-ocena-looku.html">← Poprzedni</a>
     <a class="nav-toc" href="../index.html">Spis treści</a>
     <a class="nav-next" href="rozdzial-24-epilog.html">Następny →</a>

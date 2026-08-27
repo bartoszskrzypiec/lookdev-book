@@ -20,16 +20,64 @@
 <div class="page">
 
   <div class="viewport-readout">
-    <span>ROZDZIAŁ · 22/24</span><span>CZĘŚĆ · VII</span><span>STATUS · W PRZYGOTOWANIU</span>
+    <span>TURNTABLE · 360° pod stałym rigiem</span><span>ŁAPIE · coat, anizotropię, Fresnel</span><span>NIE ŁAPIE · dopasowania do shota</span>
   </div>
 
   <div class="eyebrow">Rozdział 22 / Oświetlenie i review</div>
   <h1>Turntable i ocena looku</h1>
   <p class="subtitle">Materiał, który wygląda świetnie z jednego kąta, może się rozpaść pod innym światłem — turntable to test, który to wyłapuje, zanim zobaczy go supervisor.</p>
 
-  <div class="panel practice">
-    <div class="panel-label">Status</div>
-    <p>Ten rozdział jeszcze nie został napisany. Tytuł, miejsce w strukturze książki i zajawka powyżej są już ustalone — treść powstanie w kolejnej sesji pracy nad książką, zgodnie z filozofią „żywego projektu” przejętą z raytracing-book i pipeline-book.</p>
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>Turntable to pełny obrót 360° pod <span class="term-amber">stałym, skalibrowanym rigiem</span> z Rozdziału 21 — ujawnia błędy zależne od kąta, których pojedyncza, statyczna klatka nigdy nie pokaże.</li>
+      <li>Konkretne rzeczy, które turntable wyłapuje, a still nie: niedopasowanie energii coat/baza (Rozdziały 13, 15), zły kierunek anizotropii (Rozdział 18), Fresnel poprawny wprost, a błędny pod kątem grazing.</li>
+      <li>Zatwierdzenie na turntable to <span class="term-cyan">konieczny, ale nie wystarczający</span> warunek — materiał oceniony w izolacji pod neutralnym rigiem może i tak wymagać poprawek pod konkretnym światłem konkretnego shota (Rozdział 1).</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Dlaczego jedna klatka nie wystarcza</div>
+    <h2>Fresnel i anizotropia żyją w kącie, nie w jednej klatce</h2>
+    <p>Fresnel każdego dielektryka rośnie z kątem padania — powierzchnia, która patrząc wprost wygląda poprawnie matowo, przy kącie grazing zawsze staje się bardziej lustrzana, to fizyka, nie błąd (raytracing-book, Rozdział 7). Problem pojawia się, gdy ta krzywa jest źle skalibrowana: błąd widać wyłącznie w wąskim zakresie kątów, których pojedynczy, wygodnie ustawiony still może po prostu nie pokazywać. Anizotropia z Rozdziału 18 jest jeszcze bardziej kątowo-zależna — kierunek elipsy błysku zmienia się względem światła i kamery w trakcie obrotu, więc źle podłączona mapa tangenty potrafi wyglądać przypadkowo poprawnie z jednego, konkretnego ustawienia kamery i jawnie źle z każdego innego.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Co konkretnie wyłapuje</div>
+    <h2>Lista typowych winowajców turntable'u</h2>
+    <ul class="compact">
+      <li><strong>Coat/baza bez zbilansowanej energii</strong> (Rozdziały 13, 15) — pod jednym kątem coat i baza nakładają się niezauważalnie, pod innym ich błyski się rozjeżdżają i widać, że powierzchnia oddaje więcej światła, niż powinna.</li>
+      <li><strong>Zły kierunek anizotropii</strong> (Rozdział 18) — elipsa błysku, która powinna podążać za kierunkiem szczotkowania, zamiast tego „pływa" w losowym kierunku wyznaczonym domyślną parametryzacją UV.</li>
+      <li><strong>Pułapka skali SSS</strong> (Rozdziały 16–17) — promień/MFP źle skalibrowany do jednostek sceny bywa niezauważalny na grubym fragmencie geometrii i jawnie widoczny, gdy cienki fragment (ucho, palec) obraca się pod kontrę.</li>
+      <li><strong>Niedopasowany model specularu</strong> (Rozdział 13) — różnica między Beckmannem a GGX najbardziej widoczna jest w „ogonie" poświaty, przy kątach grazing, nie w samym centrum błysku.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Budowa</div>
+    <h2>Co się kręci, a co zostaje na miejscu</h2>
+    <p>Standardowa konwencja: obraca się <em>obiekt</em>, nie kamera ani rig HDRI — kamera i oświetlenie zostają dokładnie tam, gdzie były w Rozdziale 21, więc jedyną zmienną w całym przebiegu jest orientacja materiału względem światła. Pełny obrót zwykle rozciąga się na taką liczbę klatek, żeby ruch był dość wolny, by oko zdążyło ocenić każdy fragment powierzchni pod każdym kątem — zbyt szybki obrót przemyca błędy dokładnie tam, gdzie najbardziej by się przydały do zobaczenia. Referencyjne kule z Rozdziału 21, obracające się razem z obiektem albo stojące obok niego nieruchomo, dają stały punkt odniesienia: jeśli kula chromowana i szara wyglądają identycznie w każdej klatce, a materiał — nie, błąd na pewno leży w materiale, nie w rigu.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow">Etap: Granice zatwierdzenia</div>
+    <h2>Turntable to nie koniec pracy nad lookiem</h2>
+    <p>Rozdział 1 rozdzielił lookdev od lightingu właśnie dlatego, że lookdev dzieje się raz, w izolacji, dla assetu jako całości — a turntable jest dokładnie tym narzędziem, które tę izolację operacjonalizuje. Materiał zatwierdzony na turntable pod neutralnym rigiem przeszedł najlepszy dostępny test ogólnej poprawności, ale to nie gwarancja, że będzie wyglądał idealnie w każdym konkretnym shocie — inne, bardziej ekstremalne oświetlenie shota (Rozdział 21 pokazał, jak bardzo dobór HDRI zmienia odbiór tego samego materiału) może wciąż ujawnić coś, czego neutralny rig nie sprowokował. To nie porażka procesu — to dokładnie granica, do której lookdev w ogóle sięga, zanim odpowiedzialność przejmuje lighting artist per shot.</p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label">Słowniczek</div>
+    <dl>
+      <dt>Turntable</dt>
+      <dd>Pełny obrót 360° obiektu pod stałym rigiem oświetleniowym i kamerą — test poprawności materiału niezależny od pojedynczego kąta.</dd>
+      <dt>Kąt grazing</dt>
+      <dd>Kąt bliski równoległemu do powierzchni, gdzie Fresnel każdego dielektryka rośnie do niemal pełnego odbicia.</dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);">Co dalej</div>
+    <p>Turntable pokazuje, <em>że</em> coś jest nie tak. Rozdział 23 pokazuje, jak znaleźć <em>co</em> — AOV i debugging looku, oraz to, jak różnie Arnold i RenderMan dochodzą do czystego obrazu.</p>
   </div>
 
 <div class="site-nav chapter-nav">
