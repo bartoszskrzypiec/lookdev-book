@@ -12,6 +12,17 @@
   --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
   --display:'Space Grotesk',ui-sans-serif,sans-serif;
   --body:'IBM Plex Sans',ui-sans-serif,sans-serif;
+
+  /* Aliases for the shared learning-materials toolkit (viz.js / widgets.css).
+     See learning-materials/docs/INTEGRATION.md for the full contract. */
+  --text-muted: var(--text-dim);
+  --accent: var(--amber);
+  --bg-elevated: var(--bg-panel);
+  --radius: 10px;
+  --viz-a: var(--violet);
+  --viz-b: var(--cyan);
+  --viz-grid: var(--border);
+  --viz-bg: var(--bg-panel-alt);
 }
 
 *{box-sizing:border-box;}

@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/widgets.css">
 </head>
 <body>
 <nav class="topnav">
@@ -82,6 +83,108 @@
     <h2>Metalness kontra Face/Edge Color — dwa sposoby na to samo zespolone IOR</h2>
     <p>Żaden z shaderów nie zmusza Cię do wpisywania prawdziwych n i k. Arnold daje suwak <code>metalness</code>: przy wartości 1 barwi cały specular kolorem z <code>base_color</code> i wygasza diffuse do zera — to aproksymacja, nie prawdziwy zespolony Fresnel, ale wystarczająco dobra, żeby w większości ujęć nie było widać różnicy. PxrSurface idzie o krok dalej i wystawia dwa niezależne kolory: <strong>Specular Face Color</strong> (reflektancja patrząc wprost — dokładnie ta trójka z tabeli wyżej) i <strong>Specular Edge Color</strong> (reflektancja pod kątem, przy grazing angle). To nie przypadkowe dwa suwaki — to konkretna, znana aproksymacja (Schlick rozszerzony o „edge tint”, Gulbrandsen 2014), która dwoma kolorami odtwarza krzywą Fresnela zespolonego IOR wystarczająco wiernie dla lookdevu, bez podawania ani jednej liczby zespolonej.</p>
     <p>PxrSurface nazywa to wprost trybami: <strong>Artistic</strong> (domyślny — malujesz Face/Edge Color i Fresnel Exponent sterujący szybkością przejścia, najbliższe workflow'owi Arnolda) kontra <strong>Physical</strong> (wpisujesz prawdziwy Specular IOR i, dla metali, Extinction Coefficient — dokładniejsze, ale liczby n/k trudno wyczuć na oko). Oficjalny konwerter Pixara z Arnolda na PxrSurface eksportuje do trybu Physical, bo potrafi policzyć dokładne IOR/extinction programowo z wartości Arnolda — ale przy ręcznej pracy tryb Artistic jest praktyczniejszym wyborem, właśnie dlatego, że człowiek potrafi ocenić kolor, a nie liczbę zespoloną.</p>
+
+    <div class="viz">
+      <div class="viz__head">
+        <p class="viz__title">Ten sam suwak, dwa sposoby</p>
+        <p class="viz__sub">Jedna kula, przecięta na pół. Lewa połówka sterowana suwakiem Metalness Arnolda. Prawa połówka sterowana Face Color, Edge Color i Diffuse Gain PxrSurface — wszystkie trzy wyliczone z tej samej jednej liczby.</p>
+      </div>
+      <div class="viz__stage"><canvas id="metal-ball" data-ratio="0.6"></canvas></div>
+      <div class="viz__legend">
+        <span><i class="legend-a"></i>Arnold — jeden suwak Metalness</span>
+        <span><i class="legend-b"></i>PxrSurface — dwa kolory i jeden gain</span>
+      </div>
+      <div class="viz__controls" id="metal-ctl">
+        <div class="ctl">
+          <label class="ctl__label" for="mtMetal">
+            <span>Metalness</span>
+            <span class="ctl__value" data-value-for="mtMetal"></span>
+          </label>
+          <input type="range" id="mtMetal" min="0" max="1" step="0.01" value="1" data-fmt="2">
+        </div>
+        <div class="ctl">
+          <label class="ctl__label" for="mtHue">
+            <span>Odcień Base Color</span>
+            <span class="ctl__value" data-value-for="mtHue"></span>
+          </label>
+          <input type="range" id="mtHue" min="0" max="360" step="1" value="45" data-fmt="deg0">
+        </div>
+        <div class="ctl">
+          <label class="ctl__label" for="mtRough">
+            <span>Roughness</span>
+            <span class="ctl__value" data-value-for="mtRough"></span>
+          </label>
+          <input type="range" id="mtRough" min="0.05" max="0.6" step="0.01" value="0.22" data-fmt="2">
+        </div>
+        <div class="ctl ctl--seg">
+          <div class="ctl__label"><span>Diffuse Gain po stronie PxrSurface</span></div>
+          <div class="seg" id="mtDiffuse" data-value="zeroed">
+            <button type="button" data-val="zeroed" class="is-active">Wyzerowany</button>
+            <button type="button" data-val="left">Zostawiony na 1</button>
+          </div>
+        </div>
+      </div>
+      <div class="readout" id="metal-readout"></div>
+      <div class="viz__note">
+        <p>Przy wyzerowanym Diffuse Gain szew znika przy każdej wartości Metalness — dopasowanie tych dwóch kolorów i wygaszenie diffuse to <em>wszystko</em>, co ten jeden suwak Arnolda kiedykolwiek robił. Przełącz na „zostawiony na 1", a szew wraca: ta dodatkowa jasność po prawej to dokładnie ten wyprany, plastikowy metal, o którym mowa w tekście — a szew pokazuje dokładnie, ile światła nie powinno tam być.</p>
+      </div>
+    </div>
+    <script type="module">
+    import { createShaderball, bindControls, MODEL } from '../assets/viz.js';
+
+    function hueRgb(h, sat, val) {
+      const c = val * sat;
+      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+      const m = val - c;
+      const t = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]];
+      const rgb = t[Math.floor(h / 60) % 6];
+      return [rgb[0] + m, rgb[1] + m, rgb[2] + m];
+    }
+
+    const metalBall = createShaderball(document.getElementById('metal-ball'), {
+      split: true,
+      model: [MODEL.GGX, MODEL.GGX],
+      roughness: [0.22, 0.22],
+      fresnelMode: [3, 1],
+      lightAngle: 9,
+      exposure: 0.3,
+      lightPower: 45,
+      envGain: 0.75,
+    });
+
+    const metalReadout = document.getElementById('metal-readout');
+
+    function updateMetal(s) {
+      const base = hueRgb(s.mtHue, 0.75, 0.88);
+      const face = base.map((c) => 0.04 + (c - 0.04) * s.mtMetal);
+      const edge = base.map((c) => 1 + (c - 1) * s.mtMetal);
+      const diffusePxr = s.mtDiffuse === 'zeroed' ? (1 - s.mtMetal) * 0.35 : 0.35;
+
+      metalBall.set({
+        roughness: [s.mtRough, s.mtRough],
+        metalness: s.mtMetal,
+        baseColor: base,
+        faceColor: face,
+        edgeColor: edge,
+        diffColor: base.map((c) => c * 0.5),
+        diffuse: [(1 - s.mtMetal) * 0.35, diffusePxr],
+      });
+
+      const f3 = (v) => v.map((c) => c.toFixed(2)).join(', ');
+      const mismatch = s.mtDiffuse !== 'zeroed' && s.mtMetal > 0.02;
+      metalReadout.innerHTML =
+        `<span>Face Color: <b>${f3(face)}</b></span>` +
+        `<span>Edge Color: <b>${f3(edge)}</b></span>` +
+        `<span>Diffuse Gain: <b>${diffusePxr.toFixed(2)}</b></span>` +
+        (mismatch
+          ? '<span>⚠ widoczny szew — to ten wyprany metal</span>'
+          : '<span>✓ połówki się zgadzają</span>');
+    }
+
+    const metalCtl = bindControls(document.getElementById('metal-ctl'), updateMetal);
+    updateMetal(metalCtl.state);
+    </script>
+
     <div class="worked">
       <div class="wlabel">Policzone: budowa mosiądzu (stop miedzi i cynku) w PxrSurface, tryb Artistic</div>
       <div class="step"><span class="k">Punkt startowy</span> — mosiądz jest bliżej miedzi niż złota: Face Color ≈ <span class="v">(0,88; 0,70; 0,40)</span>, pomiędzy tabelą miedzi i złota wyżej</div>
