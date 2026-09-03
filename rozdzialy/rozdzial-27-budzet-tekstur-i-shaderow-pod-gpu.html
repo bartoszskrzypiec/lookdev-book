@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en" data-i18n-storage="ldb-lang" data-i18n-default="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-title-en="Chapter 27 — Texture and shader budget on the GPU" data-title-pl="Rozdział 27 — Budżet tekstur i shaderów pod GPU">Chapter 27 — Texture and shader budget on the GPU</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/widgets.css">
+<script>
+(function () {
+  var d = document.documentElement, l = null;
+  var storeKey = d.dataset.i18nStorage || 'i18n-lang';
+  var fallback = d.dataset.i18nDefault === 'pl' ? 'pl' : 'en';
+  try { l = new URLSearchParams(location.search).get('lang') || localStorage.getItem(storeKey); } catch (e) {}
+  if (l !== 'en' && l !== 'pl') l = (navigator.language || '').toLowerCase().indexOf('pl') === 0 ? 'pl' : fallback;
+  d.setAttribute('data-lang', l); d.lang = l; d.classList.add('js');
+})();
+</script>
+</head>
+<body>
+<nav class="topnav topnav--i18n">
+  <a class="topnav__brand" href="../index.html">Lookdev <span>dla Artystów Technicznych</span></a>
+  <div class="topnav__links">
+    <a href="../index.html"><span lang="en">Contents</span><span lang="pl">Spis treści</span></a>
+    <a href="rozdzial-26-kolor-i-tone-mapping-w-realtime.html"><span lang="en">← Previous</span><span lang="pl">← Poprzedni</span></a>
+    <a href="rozdzial-28-red-engine-i-silniki-autorskie.html"><span lang="en">Next →</span><span lang="pl">Następny →</span></a>
+  </div>
+  <div class="lang-switch" role="group" aria-label="Language / Język">
+    <button type="button" data-set-lang="en" class="is-active" aria-pressed="true">EN</button>
+    <button type="button" data-set-lang="pl" aria-pressed="false">PL</button>
+  </div>
+</nav>
+<div class="page">
+
+  <div class="viewport-readout">
+    <span><span lang="en">BLOCK · 4×4 pixels, fixed bitrate</span><span lang="pl">BLOK · 4×4 piksele, stały bitrate</span></span><span><span lang="en">MIP · variance lost, roughness unchanged</span><span lang="pl">MIP · wariancja gubiona, roughness bez zmian</span></span><span><span lang="en">BUDGET · MB per asset, not per shot</span><span lang="pl">BUDŻET · MB na asset, nie na ujęcie</span></span>
+  </div>
+
+  <div class="eyebrow"><span lang="en">Chapter 27 / Realtime lookdev</span><span lang="pl">Rozdział 27 / Lookdev realtime</span></div>
+  <h1><span lang="en">Texture and shader budget on the GPU</span><span lang="pl">Budżet tekstur i shaderów pod GPU</span></h1>
+  <p class="subtitle">
+    <span lang="en">Chapter 12 asked how many bits a value needs. This chapter asks the harder version of the same question: how many bits it gets, once someone else has already spent them.</span>
+    <span lang="pl">Rozdział 12 pytał, ile bitów potrzebuje wartość. Ten rozdział zadaje trudniejszą wersję tego samego pytania: ile bitów dostanie, kiedy ktoś inny już je wydał.</span>
+  </p>
+
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>
+        <span lang="en">GPU textures are stored <span class="term-amber">block compressed</span> — 4×4 pixel blocks at a fixed bit rate, decoded in hardware on every sample. The compression is lossy in a specific, predictable way, and knowing that way is what separates a mask that survives from one that turns blocky at the exact edge you cared about.</span>
+        <span lang="pl">Tekstury na GPU są przechowywane w <span class="term-amber">kompresji blokowej</span> — bloki 4×4 piksele o stałym bitrate, dekodowane sprzętowo przy każdym próbkowaniu. Kompresja jest stratna w konkretny, przewidywalny sposób, a znajomość tego sposobu odróżnia maskę, która przetrwa, od takiej, która rozpada się na bloki dokładnie na tej krawędzi, na której Ci zależało.</span>
+      </li>
+      <li>
+        <span lang="en"><span class="term-cyan">Mip maps make rough surfaces sparkle.</span> Downsampling a normal map averages normals and shortens them, so the surface loses microfacet variance with distance — but the roughness map, mipped separately, has no idea. The fix is to push the lost normal variance into roughness while generating mips; Unreal exposes it as compositing a roughness texture from its normal map.</span>
+        <span lang="pl"><span class="term-cyan">Mipy sprawiają, że szorstkie powierzchnie iskrzą.</span> Zmniejszanie mapy normalnych uśrednia normalne i je skraca, więc powierzchnia traci z odległością wariancję mikrofasetek — a mapa roughness, mipowana osobno, nic o tym nie wie. Lekarstwem jest wepchnięcie utraconej wariancji normalnych w roughness podczas generowania mipów; Unreal wystawia to jako składanie tekstury roughness z jej mapy normalnych.</span>
+      </li>
+      <li>
+        <span lang="en"><span class="term-violet">Channel packing</span> — AO, roughness and metallic in the three channels of one texture — is not a tidiness convention. It buys back texture samplers, which Chapter 25 showed are a hard limit inside a material, and it halves the sampling cost. It also makes Chapter 11's colour-versus-data rule non-negotiable: a packed texture is always data, never sRGB.</span>
+        <span lang="pl"><span class="term-violet">Channel packing</span> — AO, roughness i metallic w trzech kanałach jednej tekstury — to nie konwencja porządkowa. Odkupuje samplery tekstur, które według Rozdziału 25 są twardym limitem wewnątrz materiału, i o połowę zmniejsza koszt próbkowania. Czyni też zasadę kolor kontra dane z Rozdziału 11 nienegocjowalną: tekstura spakowana kanałowo to zawsze dane, nigdy sRGB.</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: Block compression</span><span lang="pl">Etap: Kompresja blokowa</span></div>
+    <h2><span lang="en">Two endpoints per sixteen pixels</span><span lang="pl">Dwa punkty końcowe na szesnaście pikseli</span></h2>
+    <p>
+      <span lang="en">All the BC (block compression) formats share one idea: split the image into 4×4 blocks and store, per block, a small number of endpoint values plus a per-pixel index selecting a point interpolated between them. BC1 stores two RGB endpoints and two bits per pixel — four distinct colours for the whole block, at half a byte per pixel. The gradient inside a block is therefore quantised to those four steps, and the endpoints are chosen per block, which is why compression artefacts follow the 4×4 grid rather than the image content.</span>
+      <span lang="pl">Wszystkie formaty BC (block compression) dzielą jedną ideę: podziel obraz na bloki 4×4 i zapisz w każdym bloku niewielką liczbę wartości końcowych plus indeks per piksel wybierający punkt interpolowany między nimi. BC1 przechowuje dwa punkty końcowe RGB i dwa bity na piksel — cztery różne kolory na cały blok, przy pół bajta na piksel. Gradient wewnątrz bloku jest więc skwantowany do tych czterech kroków, a punkty końcowe dobierane są per blok — dlatego artefakty kompresji podążają za siatką 4×4, a nie za treścią obrazu.</span>
+    </p>
+    <div class="formula">M ≈ w · h · bpp · 4/3<span class="sub"><span lang="en">M — texture memory including the full mip chain; w, h — dimensions; bpp — bytes per pixel of the format (BC1 = 0,5; BC7 / BC3 = 1). The 4/3 is the mip chain's geometric series: 1 + 1/4 + 1/16 + … A 4096² BC1 texture ≈ 11 MB with mips; the same map as BC7 ≈ 22 MB.</span><span lang="pl">M — pamięć tekstury razem z pełnym łańcuchem mipów; w, h — wymiary; bpp — bajty na piksel formatu (BC1 = 0,5; BC7 / BC3 = 1). Współczynnik 4/3 to szereg geometryczny łańcucha mipów: 1 + 1/4 + 1/16 + … Tekstura 4096² w BC1 to ≈ 11 MB z mipami; ta sama mapa w BC7 to ≈ 22 MB.</span></span></div>
+    <div class="table-frame" lang="en">
+      <table class="data-table">
+        <thead><tr><th>Format</th><th class="num">Bytes/px</th><th>Channels</th><th>Use in lookdev</th></tr></thead>
+        <tbody>
+          <tr><td>BC1</td><td class="num">0,5</td><td>RGB (+1-bit alpha)</td><td>Albedo where quality allows; the cheapest and the most visibly blocky</td></tr>
+          <tr><td>BC3</td><td class="num">1,0</td><td>RGB + 8-bit alpha</td><td>Albedo with a real alpha; alpha is compressed separately and survives better than RGB</td></tr>
+          <tr><td>BC4</td><td class="num">0,5</td><td>1 channel</td><td>A single grey map — roughness, a mask, height. The best quality per bit for one channel</td></tr>
+          <tr><td>BC5</td><td class="num">1,0</td><td>2 channels</td><td>Tangent-space normals: store X and Y, reconstruct Z in the shader</td></tr>
+          <tr><td>BC6H</td><td class="num">1,0</td><td>RGB, half-float</td><td>HDR — the HDRI environment of Chapter 21, cubemaps, captured lighting</td></tr>
+          <tr><td>BC7</td><td class="num">1,0</td><td>RGBA</td><td>High-quality albedo and packed masks; multiple block modes, far fewer artefacts than BC1</td></tr>
+        </tbody>
+      </table>
+      <div class="table-caption">Uncompressed 8-bit RGBA is 4 bytes per pixel — every row above is a four- to eight-fold saving, paid for in a specific artefact.</div>
+    </div>
+    <div class="table-frame" lang="pl">
+      <table class="data-table">
+        <thead><tr><th>Format</th><th class="num">Bajty/px</th><th>Kanały</th><th>Zastosowanie w lookdevie</th></tr></thead>
+        <tbody>
+          <tr><td>BC1</td><td class="num">0,5</td><td>RGB (+alfa 1-bit)</td><td>Albedo tam, gdzie jakość pozwala; najtańszy i najbardziej widocznie blokowy</td></tr>
+          <tr><td>BC3</td><td class="num">1,0</td><td>RGB + alfa 8-bit</td><td>Albedo z prawdziwą alfą; alfa kompresowana osobno i znosi to lepiej niż RGB</td></tr>
+          <tr><td>BC4</td><td class="num">0,5</td><td>1 kanał</td><td>Pojedyncza mapa szarości — roughness, maska, wysokość. Najlepsza jakość na bit dla jednego kanału</td></tr>
+          <tr><td>BC5</td><td class="num">1,0</td><td>2 kanały</td><td>Normalne w przestrzeni stycznej: zapisz X i Y, odtwórz Z w shaderze</td></tr>
+          <tr><td>BC6H</td><td class="num">1,0</td><td>RGB, half-float</td><td>HDR — środowisko HDRI z Rozdziału 21, cubemapy, przechwycone oświetlenie</td></tr>
+          <tr><td>BC7</td><td class="num">1,0</td><td>RGBA</td><td>Albedo wysokiej jakości i spakowane maski; wiele trybów bloku, dużo mniej artefaktów niż BC1</td></tr>
+        </tbody>
+      </table>
+      <div class="table-caption">Nieskompresowane 8-bitowe RGBA to 4 bajty na piksel — każdy wiersz powyżej to oszczędność cztero- do ośmiokrotnej, opłacona konkretnym artefaktem.</div>
+    </div>
+    <p>
+      <span lang="en">Two consequences matter for authoring. A normal map must never go through an RGB format that compresses the channels jointly — that is what BC5 exists for, and a normal map in BC1 produces the characteristic blotchy shading that no amount of roughness tuning will fix. And unrelated data packed into the RGB of a jointly-compressed format bleeds between channels: if roughness and metallic share BC1's endpoints, a metal edge will contaminate roughness. Pack into BC7, or keep single-channel maps in BC4.</span>
+      <span lang="pl">Dwie konsekwencje mają znaczenie przy autorowaniu. Mapa normalnych nie może przechodzić przez format RGB kompresujący kanały wspólnie — po to jest BC5, a normalna w BC1 daje charakterystyczne plamiaste cieniowanie, którego nie naprawi żadne strojenie roughness. I dane niezwiązane ze sobą, spakowane w RGB formatu kompresowanego wspólnie, przeciekają między kanałami: jeśli roughness i metallic dzielą punkty końcowe BC1, krawędź metalu zanieczyści roughness. Pakuj do BC7 albo trzymaj mapy jednokanałowe w BC4.</span>
+    </p>
+  </div>
+
+  <div class="diagram-frame">
+    <div class="diagram-hud"><span>BC1.block</span><span><span lang="en">4×4 pixels, two endpoints, four available values</span><span lang="pl">4×4 piksele, dwa punkty końcowe, cztery dostępne wartości</span></span></div>
+    <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg">
+      <g font-family="IBM Plex Mono" font-size="10" fill="#8b909b">
+        <text x="60" y="34"><tspan lang="en">source gradient (16 distinct values)</tspan><tspan lang="pl">gradient źródłowy (16 różnych wartości)</tspan></text>
+        <text x="420" y="34"><tspan lang="en">after BC1 (4 values, per block)</tspan><tspan lang="pl">po BC1 (4 wartości, per blok)</tspan></text>
+      </g>
+      <g>
+        <rect x="60" y="46" width="140" height="140" fill="none" stroke="#8b909b"/>
+        <rect x="60" y="46" width="140" height="35" fill="#2a3038"/>
+        <rect x="60" y="81" width="140" height="35" fill="#464e58"/>
+        <rect x="60" y="116" width="140" height="35" fill="#6d7580"/>
+        <rect x="60" y="151" width="140" height="35" fill="#99a1ab"/>
+        <g stroke="#1b1f25" stroke-width="1">
+          <line x1="95" y1="46" x2="95" y2="186"/><line x1="130" y1="46" x2="130" y2="186"/><line x1="165" y1="46" x2="165" y2="186"/>
+        </g>
+      </g>
+      <path d="M 230,116 L 270,116" stroke="#8b909b" stroke-width="1.5"/>
+      <path d="M 262,110 L 272,116 L 262,122 Z" fill="#8b909b"/>
+      <g>
+        <rect x="300" y="46" width="140" height="140" fill="none" stroke="#8b909b"/>
+        <rect x="300" y="46" width="140" height="35" fill="#2a3038"/>
+        <rect x="300" y="81" width="140" height="35" fill="#4c545e"/>
+        <rect x="300" y="116" width="140" height="35" fill="#6d7580"/>
+        <rect x="300" y="151" width="140" height="35" fill="#99a1ab"/>
+      </g>
+      <g font-family="IBM Plex Mono" font-size="10">
+        <circle cx="470" cy="70" r="4" fill="#4fc3c0"/><text x="482" y="74" fill="#4fc3c0"><tspan lang="en">endpoint 0 — stored exactly</tspan><tspan lang="pl">punkt końcowy 0 — zapisany dokładnie</tspan></text>
+        <circle cx="470" cy="94" r="4" fill="#e8a33d"/><text x="482" y="98" fill="#e8a33d"><tspan lang="en">two interpolated steps</tspan><tspan lang="pl">dwa kroki interpolowane</tspan></text>
+        <circle cx="470" cy="118" r="4" fill="#4fc3c0"/><text x="482" y="122" fill="#4fc3c0"><tspan lang="en">endpoint 1 — stored exactly</tspan><tspan lang="pl">punkt końcowy 1 — zapisany dokładnie</tspan></text>
+        <text x="470" y="152" fill="#a98cd8"><tspan lang="en">2 bits per pixel choose one of the four</tspan><tspan lang="pl">2 bity na piksel wybierają jedną z czterech</tspan></text>
+        <text x="470" y="172" fill="#8b909b"><tspan lang="en">→ a smooth gradient bands along block edges</tspan><tspan lang="pl">→ gładki gradient pasmuje na krawędziach bloków</tspan></text>
+      </g>
+      <text x="60" y="212" font-family="IBM Plex Mono" font-size="10" fill="#e8a33d"><tspan lang="en">Same mechanism as Chapter 12's banding — but quantised per block, not per image.</tspan><tspan lang="pl">Ten sam mechanizm co pasmowanie z Rozdziału 12 — tylko kwantyzowany per blok, nie per obraz.</tspan></text>
+    </svg>
+    <div class="diagram-caption"><span lang="en">A block whose sixteen pixels span a wide value range gets four steps to describe them all. Detail that crosses a block boundary — a mask edge, a scratch, a seam — is where the artefact becomes visible.</span><span lang="pl">Blok, którego szesnaście pikseli obejmuje szeroki zakres wartości, dostaje cztery kroki na opisanie ich wszystkich. Detal przechodzący przez granicę bloku — krawędź maski, rysa, szew — to miejsce, w którym artefakt staje się widoczny.</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: Mips</span><span lang="pl">Etap: Mipy</span></div>
+    <h2><span lang="en">Why a rough surface sparkles at distance</span><span lang="pl">Dlaczego szorstka powierzchnia iskrzy z odległości</span></h2>
+    <p>
+      <span lang="en">A mip chain is a set of pre-filtered downsamples the GPU picks between by screen-space texel density. Two things go wrong in it, and both are lookdev problems rather than technical-artist trivia.</span>
+      <span lang="pl">Łańcuch mipów to zestaw wstępnie przefiltrowanych pomniejszeń, między którymi GPU wybiera na podstawie ekranowej gęstości tekseli. Dwie rzeczy idą w nim źle i obie są problemami lookdevu, a nie ciekawostkami dla technicznego artysty.</span>
+    </p>
+    <p>
+      <span lang="en">The first is the Chapter 3 mistake in a new place: mips must be filtered in linear space. Averaging sRGB-encoded values directly darkens the result, so a texture whose mips were generated without decoding first will drift in brightness with distance — visible as an asset that gets subtly darker as the camera pulls back.</span>
+      <span lang="pl">Pierwsza to błąd z Rozdziału 3 w nowym miejscu: mipy muszą być filtrowane w przestrzeni liniowej. Uśrednianie wartości zakodowanych w sRGB wprost przyciemnia wynik, więc tekstura, której mipy wygenerowano bez wcześniejszego dekodowania, będzie dryfować w jasności wraz z odległością — widać to jako asset subtelnie ciemniejący, gdy kamera się oddala.</span>
+    </p>
+    <p>
+      <span lang="en">The second is deeper and comes straight from Chapter 13's microfacet model. Roughness is a statistical description of normal variation below the pixel; a normal map is the same variation stored explicitly. When a normal map is downsampled, opposing normals average out and the resulting vector <em>shortens</em> — the variation is lost from the normal map, but it was never transferred into the roughness map, which was mipped independently. The surface therefore becomes smoother than it should be at distance, and a smoother surface concentrates its specular into a smaller, brighter lobe: the sparkle and shimmer you see on distant metal, wet asphalt or fine fabric.</span>
+      <span lang="pl">Druga jest głębsza i wynika wprost z modelu mikrofasetkowego z Rozdziału 13. Roughness to statystyczny opis zmienności normalnych poniżej piksela; mapa normalnych to ta sama zmienność zapisana wprost. Kiedy mapa normalnych jest pomniejszana, przeciwstawne normalne uśredniają się, a wynikowy wektor <em>skraca się</em> — zmienność ginie z mapy normalnych, ale nigdy nie została przeniesiona do mapy roughness, mipowanej niezależnie. Powierzchnia staje się więc z odległości gładsza, niż powinna, a gładsza powierzchnia skupia specular w mniejszym, jaśniejszym lobie: to iskrzenie i migotanie, które widzisz na odległym metalu, mokrym asfalcie czy drobnej tkaninie.</span>
+    </p>
+    <p>
+      <span lang="en">The fix is to convert the lost normal length into extra roughness at each mip level — the classic Toksvig-style variance-to-roughness mapping. In Unreal it is a texture setting: point a roughness texture at its normal map as a composite texture, and each roughness mip is generated with that correction applied. Turning it on for every roughness map that has a matching normal map is close to free and removes a whole class of "it shimmers in motion" notes.</span>
+      <span lang="pl">Lekarstwem jest zamiana utraconej długości normalnej na dodatkowy roughness na każdym poziomie mipa — klasyczne odwzorowanie wariancji na roughness w stylu Toksviga. W Unrealu to ustawienie tekstury: wskaż teksturze roughness jej mapę normalnych jako composite texture, a każdy mip roughness powstanie z nałożoną korektą. Włączenie tego dla każdej mapy roughness mającej odpowiadającą mapę normalnych jest niemal darmowe i usuwa całą klasę uwag „migocze w ruchu".</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: Packing</span><span lang="pl">Etap: Pakowanie</span></div>
+    <h2><span lang="en">Three maps in one texture</span><span lang="pl">Trzy mapy w jednej teksturze</span></h2>
+    <p>
+      <span lang="en">Chapter 25 named the wall: a material has a small fixed number of texture samplers, and a graph that samples one texture per channel hits it before the material is finished. <strong>Channel packing</strong> is the answer — most commonly ORM: ambient occlusion in R, roughness in G, metallic in B, one sample instead of three. Conventions differ per project and per engine, which is exactly why the convention must be written down somewhere a texture artist reads, not inferred from an existing file.</span>
+      <span lang="pl">Rozdział 25 nazwał ścianę: materiał ma małą, stałą liczbę samplerów tekstur, a graf próbkujący jedną teksturę na kanał uderza w nią, zanim materiał będzie skończony. <strong>Channel packing</strong> to odpowiedź — najczęściej ORM: ambient occlusion w R, roughness w G, metallic w B, jedno próbkowanie zamiast trzech. Konwencje różnią się między projektami i silnikami i właśnie dlatego konwencję trzeba spisać tam, gdzie czyta ją artysta teksturujący, a nie wywnioskować z istniejącego pliku.</span>
+    </p>
+    <p>
+      <span lang="en">Three rules keep packing from causing more problems than it solves. A packed texture is data, never colour — sRGB stays off, per Chapter 11. Channels with hard edges (masks) and channels with smooth gradients (AO) fight each other inside a jointly-compressed block, so packed maps want BC7 rather than BC1. And the channel that carries the most perceptually important signal — usually roughness, because Chapter 13 showed how strongly a small roughness change moves a highlight — should get the format's best-preserved channel, which for BC3 is alpha.</span>
+      <span lang="pl">Trzy zasady sprawiają, że pakowanie nie tworzy więcej problemów, niż rozwiązuje. Tekstura spakowana to dane, nigdy kolor — sRGB zostaje wyłączony, zgodnie z Rozdziałem 11. Kanały z twardymi krawędziami (maski) i kanały z gładkimi gradientami (AO) walczą ze sobą wewnątrz wspólnie kompresowanego bloku, więc mapy spakowane wolą BC7 niż BC1. A kanał niosący percepcyjnie najważniejszy sygnał — zwykle roughness, bo Rozdział 13 pokazał, jak mocno mała zmiana roughness rusza rozbłyskiem — powinien dostać najlepiej zachowany kanał formatu, którym w BC3 jest alfa.</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: The budget</span><span lang="pl">Etap: Budżet</span></div>
+    <h2><span lang="en">Texel density, streaming, and what "4K textures" costs</span><span lang="pl">Gęstość tekseli, streaming i ile kosztują „tekstury 4K"</span></h2>
+    <p>
+      <span lang="en">In VFX, UDIM tiles let an asset carry as much texture as it needs, and Appendix T's budget is about disk and load time. In a game the same asset shares a fixed pool of video memory with everything else on screen, so texture resolution is expressed as <strong>texel density</strong> — texels per centimetre of surface — and agreed project-wide, so that a wall and a prop next to it resolve to the same detail rather than one looking soft beside the other.</span>
+      <span lang="pl">W VFX kafle UDIM pozwalają assetowi nieść tyle tekstur, ile potrzebuje, a budżet z Dodatku T dotyczy dysku i czasu wczytywania. W grze ten sam asset dzieli stałą pulę pamięci wideo ze wszystkim innym na ekranie, więc rozdzielczość tekstur wyraża się jako <strong>gęstość tekseli</strong> — teksele na centymetr powierzchni — i uzgadnia w skali projektu, żeby ściana i stojący obok niej rekwizyt rozdzielały się do tego samego detalu, zamiast żeby jedno wyglądało miękko obok drugiego.</span>
+    </p>
+    <p>
+      <span lang="en">Streaming and virtual texturing soften the limit without removing it: the engine keeps only the mip levels currently needed resident, and virtual textures page in tiles of a much larger texture on demand. Both change <em>when</em> memory is spent, not how much a fully-resolved close-up costs — and both introduce a visible failure mode, the low-resolution mip that hasn't streamed in yet, which is worth checking deliberately by teleporting the camera to an asset rather than walking up to it.</span>
+      <span lang="pl">Streaming i wirtualne tekstury łagodzą limit, nie usuwając go: silnik trzyma w pamięci tylko aktualnie potrzebne poziomy mipów, a wirtualne tekstury doczytują kafle znacznie większej tekstury na żądanie. Oba zmieniają to, <em>kiedy</em> pamięć jest wydawana, a nie ile kosztuje w pełni rozdzielone zbliżenie — i oba wprowadzają widoczny tryb awarii, czyli niski mip, który jeszcze się nie doczytał; warto sprawdzać go celowo, teleportując kamerę do assetu zamiast do niego podchodzić.</span>
+    </p>
+    <p>
+      <span lang="en">On the shader side the equivalent budget is instructions and samples per pixel. The costs that surprise artists are rarely arithmetic: they are extra texture samples, dependent samples (a texture whose UVs come from another texture read), and shader permutations from static switches nobody uses. A master material with every feature switched on for every asset is the shader-side twin of the 4K-texture-for-a-doorknob problem.</span>
+      <span lang="pl">Po stronie shadera odpowiednikiem budżetu są instrukcje i próbkowania na piksel. Koszty, które zaskakują artystów, rzadko są arytmetyką: to dodatkowe próbkowania tekstur, próbkowania zależne (tekstura, której UV pochodzą z odczytu innej tekstury) i permutacje shadera z przełączników statycznych, których nikt nie używa. Master material z wszystkimi funkcjami włączonymi dla każdego assetu to shaderowy bliźniak problemu tekstury 4K na klamkę.</span>
+    </p>
+  </div>
+
+  <div class="panel practice">
+    <div class="panel-label"><span lang="en">From practice</span><span lang="pl">Z praktyki</span></div>
+    <p>
+      <span lang="en">Compression artefacts are invisible on the texture and obvious on the asset — always judge them in the engine, on the model, at the distance the asset is actually seen, never in the texture viewer at 100 %. The two maps that most often need to escape the cheapest format are a subtle albedo gradient (skin, painted metal) and any mask with a hard edge. Everything else usually survives BC1 better than an artist's instinct expects.</span>
+      <span lang="pl">Artefakty kompresji są niewidoczne na teksturze i oczywiste na asecie — zawsze oceniaj je w silniku, na modelu, z odległości, z jakiej asset jest naprawdę oglądany, nigdy w podglądzie tekstury przy 100 %. Dwie mapy, które najczęściej muszą uciec z najtańszego formatu, to subtelny gradient albedo (skóra, malowany metal) i każda maska z twardą krawędzią. Cała reszta zwykle znosi BC1 lepiej, niż podpowiada instynkt artysty.</span>
+    </p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label"><span lang="en">Glossary</span><span lang="pl">Słowniczek</span></div>
+    <dl>
+      <dt><span lang="en">Block compression (BC1–BC7)</span><span lang="pl">Kompresja blokowa (BC1–BC7)</span></dt>
+      <dd><span lang="en">GPU texture formats storing endpoints plus per-pixel indices for each 4×4 block, decoded in hardware at sample time.</span><span lang="pl">Formaty tekstur GPU zapisujące punkty końcowe plus indeksy per piksel dla każdego bloku 4×4, dekodowane sprzętowo przy próbkowaniu.</span></dd>
+      <dt><span lang="en">Mip chain</span><span lang="pl">Łańcuch mipów</span></dt>
+      <dd><span lang="en">The pre-filtered downsample pyramid; adds about one third to a texture's memory and must be filtered in linear space.</span><span lang="pl">Piramida wstępnie przefiltrowanych pomniejszeń; dokłada około jednej trzeciej do pamięci tekstury i musi być filtrowana liniowo.</span></dd>
+      <dt><span lang="en">Variance-to-roughness (Toksvig)</span><span lang="pl">Wariancja na roughness (Toksvig)</span></dt>
+      <dd><span lang="en">Pushing the normal variation lost during mip generation into the roughness map, removing distance sparkle.</span><span lang="pl">Przeniesienie zmienności normalnych utraconej przy generowaniu mipów do mapy roughness, co usuwa iskrzenie z odległości.</span></dd>
+      <dt><span lang="en">Channel packing / ORM</span><span lang="pl">Channel packing / ORM</span></dt>
+      <dd><span lang="en">Storing several single-channel maps in one texture's channels — commonly occlusion, roughness, metallic — to save samplers.</span><span lang="pl">Zapis kilku map jednokanałowych w kanałach jednej tekstury — zwykle occlusion, roughness, metallic — dla oszczędności samplerów.</span></dd>
+      <dt><span lang="en">Texel density</span><span lang="pl">Gęstość tekseli</span></dt>
+      <dd><span lang="en">Texels per unit of surface — the project-wide agreement that keeps neighbouring assets resolving to the same detail.</span><span lang="pl">Teksele na jednostkę powierzchni — ustalenie w skali projektu, dzięki któremu sąsiadujące assety rozdzielają się do tego samego detalu.</span></dd>
+      <dt><span lang="en">Virtual texturing / streaming</span><span lang="pl">Wirtualne teksturowanie / streaming</span></dt>
+      <dd><span lang="en">Paging in only the tiles or mip levels currently visible, moving when memory is spent rather than removing the limit.</span><span lang="pl">Doczytywanie tylko aktualnie widocznych kafli albo poziomów mipów — przesuwa moment wydania pamięci, nie znosi limitu.</span></dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);"><span lang="en">What's next</span><span lang="pl">Co dalej</span></div>
+    <p>
+      <span lang="en">Three chapters of constraints and one engine's answers to them. Chapter 28 looks at a different kind of answer: a proprietary in-house engine, REDengine, built for one studio's games — what its material system did, what its path-traced mode changed, and what a lookdev artist should take from a technology that is now being retired in favour of the engine of Chapter 25.</span>
+      <span lang="pl">Trzy rozdziały ograniczeń i odpowiedzi jednego silnika na nie. Rozdział 28 przygląda się odpowiedzi innego rodzaju: autorskiemu silnikowi jednego studia, REDengine, zbudowanemu pod jego własne gry — co robił jego system materiałów, co zmienił tryb path tracingu i co lookdev artysta powinien wziąć z technologii, która jest właśnie wygaszana na rzecz silnika z Rozdziału 25.</span>
+    </p>
+  </div>
+
+<div class="site-nav chapter-nav">
+    <a class="nav-prev" href="rozdzial-26-kolor-i-tone-mapping-w-realtime.html"><span lang="en">← Previous</span><span lang="pl">← Poprzedni</span></a>
+    <a class="nav-toc" href="../index.html"><span lang="en">Contents</span><span lang="pl">Spis treści</span></a>
+    <a class="nav-next" href="rozdzial-28-red-engine-i-silniki-autorskie.html"><span lang="en">Next →</span><span lang="pl">Następny →</span></a>
+</div>
+</div>
+<script type="module" src="../assets/i18n.js"></script>
+</body>
+</html>

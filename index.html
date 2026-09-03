@@ -21,7 +21,7 @@ h1{line-height:1.1;}
 
   <div class="eyebrow">Lookdev / Spis treści</div>
   <h1>Lookdev dla Artystów Technicznych</h1>
-  <p class="subtitle">Ta książka jest dla technicznych artystów, którzy chcą zrozumieć lookdev głębiej, niż pozwala na to dokumentacja Arnolda czy RenderMana — nie listę parametrów, tylko matematykę i rzemiosło, które za nimi stoją: od liniowego światła i macierzy przestrzeni barw, przez pełny arsenał gradingu (offset, gain, gamma, ASC CDL, saturacja), po budowę konkretnych materiałów i ocenę looku pod kalibrowanym oświetleniem. 24 rozdziały główne prowadzą przez ten materiał liniowo — każdy kolejny jawnie buduje na poprzednim. Dodatki A–W schodzą głębiej tam, gdzie rozdział główny musiał zatrzymać się na wzorze i przykładzie koncepcyjnym. Siostrzany projekt <a href="https://bartoszskrzypiec.github.io/raytracing-book/">raytracing-book</a> (matematyka renderowania) i <a href="https://bartoszskrzypiec.github.io/pipeline-book/">pipeline-book</a> (pipeline produkcyjny) — ta książka używa dokładnie tego samego systemu wizualnego i linkuje do nich tam, gdzie temat już ma głębszy wywód. To nie jest treść zamknięta: rozdziały i dodatki bywają rozwijane i przepisywane, kiedy okazują się zbyt płytkie.</p>
+  <p class="subtitle">Ta książka jest dla technicznych artystów, którzy chcą zrozumieć lookdev głębiej, niż pozwala na to dokumentacja Arnolda czy RenderMana — nie listę parametrów, tylko matematykę i rzemiosło, które za nimi stoją: od liniowego światła i macierzy przestrzeni barw, przez pełny arsenał gradingu (offset, gain, gamma, ASC CDL, saturacja), po budowę konkretnych materiałów i ocenę looku pod kalibrowanym oświetleniem. 29 rozdziałów głównych prowadzi przez ten materiał liniowo — każdy kolejny jawnie buduje na poprzednim, a Część VIII (R.24–28) przenosi cały ten warsztat do silników czasu rzeczywistego: Unreal Engine 5, RED Engine i realia gamedevu. Dodatki A–W schodzą głębiej tam, gdzie rozdział główny musiał zatrzymać się na wzorze i przykładzie koncepcyjnym. Siostrzany projekt <a href="https://bartoszskrzypiec.github.io/raytracing-book/">raytracing-book</a> (matematyka renderowania) i <a href="https://bartoszskrzypiec.github.io/pipeline-book/">pipeline-book</a> (pipeline produkcyjny) — ta książka używa dokładnie tego samego systemu wizualnego i linkuje do nich tam, gdzie temat już ma głębszy wywód. To nie jest treść zamknięta: rozdziały i dodatki bywają rozwijane i przepisywane, kiedy okazują się zbyt płytkie.</p>
 
   <div class="part">
     <div class="part-label amber">Zanim zaczniesz</div>
@@ -96,9 +96,20 @@ h1{line-height:1.1;}
   </div>
 
   <div class="part">
-    <div class="part-label">Epilog (R.24)</div>
+    <div class="part-label">Część VIII · Lookdev w realtime i gamedevie (R.24–28)</div>
     <div class="index-list">
-      <a class="index-row" href="rozdzialy/rozdzial-24-epilog.html"><span class="index-num">Rozdział 24</span><span class="index-title">Epilog: od pustej sceny do zatwierdzonego looku</span><span class="index-hook">Zaczęliśmy od pytania „jak to ma wyglądać”. Kończymy na zatwierdzonym looku, przechodząc raz jeszcze przez każdy rozdział tej książki na jednej, konkretnej scenie.</span></a>
+      <a class="index-row" href="rozdzialy/rozdzial-24-offline-kontra-realtime.html"><span class="index-num">Rozdział 24</span><span class="index-title">Offline kontra realtime: co naprawdę się zmienia</span><span class="index-hook">BRDF nie zmienia się, kiedy renderer dostaje 16 milisekund zamiast dwudziestu minut — zmienia się wszystko dookoła niego, począwszy od tego, jakie parametry materiału w ogóle mogą istnieć.</span></a>
+      <a class="index-row" href="rozdzialy/rozdzial-25-unreal-engine-5-w-praktyce.html"><span class="index-num">Rozdział 25</span><span class="index-title">Unreal Engine 5 w praktyce</span><span class="index-hook">Material Editor wygląda jak Hypershade i zachowuje się zupełnie inaczej: graf jest tu skompilowanym programem, praca artysty dzieje się w instancjach, a path tracer w edytorze jest Twoim Arnoldem.</span></a>
+      <a class="index-row" href="rozdzialy/rozdzial-26-kolor-i-tone-mapping-w-realtime.html"><span class="index-num">Rozdział 26</span><span class="index-title">Kolor i tone mapping w realtime</span><span class="index-hook">W VFX transformacja wyświetlania jest ustawieniem viewera. W grze jedzie razem z produktem — a ekranu gracza nikt nigdy nie skalibrował.</span></a>
+      <a class="index-row" href="rozdzialy/rozdzial-27-budzet-tekstur-i-shaderow-pod-gpu.html"><span class="index-num">Rozdział 27</span><span class="index-title">Budżet tekstur i shaderów pod GPU</span><span class="index-hook">Kompresja blokowa, mipy i channel packing: dlaczego czysta maska rozpada się na bloki, dlaczego szorstka powierzchnia iskrzy z odległości i ile naprawdę kosztuje tekstura 4K.</span></a>
+      <a class="index-row" href="rozdzialy/rozdzial-28-red-engine-i-silniki-autorskie.html"><span class="index-num">Rozdział 28</span><span class="index-title">RED Engine i silniki autorskie</span><span class="index-hook">Większość studiów AAA wydaje gry na silniku bez publicznej dokumentacji — REDengine pokazuje, co taki silnik optymalizuje, co robi z materiałami i które zasady z tej książki wciąż tam obowiązują.</span></a>
+    </div>
+  </div>
+
+  <div class="part">
+    <div class="part-label">Epilog (R.29)</div>
+    <div class="index-list">
+      <a class="index-row" href="rozdzialy/rozdzial-29-epilog.html"><span class="index-num">Rozdział 29</span><span class="index-title">Epilog: od pustej sceny do zatwierdzonego looku</span><span class="index-hook">Zaczęliśmy od pytania „jak to ma wyglądać”. Kończymy na zatwierdzonym looku, przechodząc raz jeszcze przez każdy rozdział tej książki na jednej, konkretnej scenie.</span></a>
     </div>
   </div>
 

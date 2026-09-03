@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en" data-i18n-storage="ldb-lang" data-i18n-default="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-title-en="Chapter 25 — Unreal Engine 5 in practice" data-title-pl="Rozdział 25 — Unreal Engine 5 w praktyce">Chapter 25 — Unreal Engine 5 in practice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/widgets.css">
+<script>
+(function () {
+  var d = document.documentElement, l = null;
+  var storeKey = d.dataset.i18nStorage || 'i18n-lang';
+  var fallback = d.dataset.i18nDefault === 'pl' ? 'pl' : 'en';
+  try { l = new URLSearchParams(location.search).get('lang') || localStorage.getItem(storeKey); } catch (e) {}
+  if (l !== 'en' && l !== 'pl') l = (navigator.language || '').toLowerCase().indexOf('pl') === 0 ? 'pl' : fallback;
+  d.setAttribute('data-lang', l); d.lang = l; d.classList.add('js');
+})();
+</script>
+</head>
+<body>
+<nav class="topnav topnav--i18n">
+  <a class="topnav__brand" href="../index.html">Lookdev <span>dla Artystów Technicznych</span></a>
+  <div class="topnav__links">
+    <a href="../index.html"><span lang="en">Contents</span><span lang="pl">Spis treści</span></a>
+    <a href="rozdzial-24-offline-kontra-realtime.html"><span lang="en">← Previous</span><span lang="pl">← Poprzedni</span></a>
+    <a href="rozdzial-26-kolor-i-tone-mapping-w-realtime.html"><span lang="en">Next →</span><span lang="pl">Następny →</span></a>
+  </div>
+  <div class="lang-switch" role="group" aria-label="Language / Język">
+    <button type="button" data-set-lang="en" class="is-active" aria-pressed="true">EN</button>
+    <button type="button" data-set-lang="pl" aria-pressed="false">PL</button>
+  </div>
+</nav>
+<div class="page">
+
+  <div class="viewport-readout">
+    <span><span lang="en">MASTER · one graph, many instances</span><span lang="pl">MASTER · jeden graf, wiele instancji</span></span><span><span lang="en">SHADING MODEL · a list, not a stack</span><span lang="pl">SHADING MODEL · lista, nie stos</span></span><span><span lang="en">REFERENCE · the path tracer</span><span lang="pl">REFERENCJA · path tracer</span></span>
+  </div>
+
+  <div class="eyebrow"><span lang="en">Chapter 25 / Realtime lookdev</span><span lang="pl">Rozdział 25 / Lookdev realtime</span></div>
+  <h1><span lang="en">Unreal Engine 5 in practice</span><span lang="pl">Unreal Engine 5 w praktyce</span></h1>
+  <p class="subtitle">
+    <span lang="en">The Material Editor looks like Hypershade and behaves nothing like it: here a shader graph is a compiled program with a fixed output contract, and the artist-facing work happens one level above it, in instances.</span>
+    <span lang="pl">Material Editor wygląda jak Hypershade i zachowuje się zupełnie inaczej: tutaj graf shadera to skompilowany program o stałym kontrakcie wyjścia, a praca artysty dzieje się o poziom wyżej — w instancjach.</span>
+  </p>
+
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>
+        <span lang="en">The unit of authoring in Unreal is not a material, it's a <span class="term-amber">master material plus its instances</span>. The master is compiled code shared by hundreds of assets; an instance only overrides parameter values and needs no recompile. Building one graph per asset — the VFX habit — is the single most expensive mistake in an engine.</span>
+        <span lang="pl">Jednostką pracy w Unrealu nie jest materiał, tylko <span class="term-amber">master material wraz z instancjami</span>. Master to skompilowany kod współdzielony przez setki assetów; instancja nadpisuje wyłącznie wartości parametrów i nie wymaga rekompilacji. Budowanie jednego grafu na asset — nawyk z VFX — to najdroższy pojedynczy błąd w silniku.</span>
+      </li>
+      <li>
+        <span lang="en">A classic Unreal material picks one <span class="term-cyan">shading model</span> from a closed list (Default Lit, Subsurface, Subsurface Profile, Clear Coat, Cloth, Hair, Thin Translucent, …) — the consequence of the fixed G-Buffer from Chapter 24. <span class="term-violet">Substrate</span>, opt-in per project and still maturing, replaces that list with slabs and operators, which is structurally much closer to the layered stack of Chapter 15 and to MaterialX.</span>
+        <span lang="pl">Klasyczny materiał w Unrealu wybiera jeden <span class="term-cyan">model cieniowania</span> z zamkniętej listy (Default Lit, Subsurface, Subsurface Profile, Clear Coat, Cloth, Hair, Thin Translucent, …) — to konsekwencja stałego G-Buffera z Rozdziału 24. <span class="term-violet">Substrate</span>, włączany opcjonalnie per projekt i wciąż dojrzewający, zastępuje tę listę slabami i operatorami, co strukturalnie jest znacznie bliżej warstwowego stosu z Rozdziału 15 i MaterialX.</span>
+      </li>
+      <li>
+        <span lang="en">Unreal ships its own <strong>path tracer</strong> in the editor. For a lookdev artist that is the most important feature in this chapter: it gives you a ground-truth render of the same material, in the same scene, to check what Lumen is approximating — the engine's equivalent of rendering the turntable in Arnold.</span>
+        <span lang="pl">Unreal ma w edytorze własny <strong>path tracer</strong>. Dla lookdev artysty to najważniejsza funkcja w tym rozdziale: daje render referencyjny tego samego materiału w tej samej scenie, żeby sprawdzić, co przybliża Lumen — silnikowy odpowiednik wyrenderowania turntable'a w Arnoldzie.</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: Master and instances</span><span lang="pl">Etap: Master i instancje</span></div>
+    <h2><span lang="en">Why one graph serves a hundred assets</span><span lang="pl">Dlaczego jeden graf obsługuje sto assetów</span></h2>
+    <p>
+      <span lang="en">A <strong>master material</strong> is a node graph that Unreal compiles into a shader program, once per platform and once per combination of its static switches (the permutations of Chapter 24). A <strong>Material Instance</strong> is not a copy of that graph — it is a small table of overridden parameter values pointing at the same compiled program. Swapping a texture or nudging roughness in an instance is free at build time and nearly free at run time; adding a node to the master is neither.</span>
+      <span lang="pl"><strong>Master material</strong> to graf węzłów, który Unreal kompiluje do programu shaderowego — raz na platformę i raz na każdą kombinację przełączników statycznych (permutacje z Rozdziału 24). <strong>Material Instance</strong> nie jest kopią tego grafu — to mała tablica nadpisanych wartości parametrów wskazująca ten sam skompilowany program. Podmiana tekstury albo poprawka roughness w instancji jest darmowa na etapie builda i prawie darmowa w czasie działania; dodanie węzła do mastera nie jest ani jednym, ani drugim.</span>
+    </p>
+    <p>
+      <span lang="en">This inverts the VFX workflow. In Arnold, per-asset shader networks are normal and the cost of one more node is a few milliseconds of a render that already takes minutes. In Unreal, the equivalent habit multiplies shader compilation times, memory and draw-call state changes across the whole project. The discipline that replaces it: design a small number of masters by <em>material family</em> — the same families this book has been building since Chapter 13 (opaque dielectric, metal, layered/coated, skin, cloth, hair, glass) — expose their parameters, and do all per-asset work in instances.</span>
+      <span lang="pl">To odwraca workflow z VFX. W Arnoldzie sieci shaderów per asset są normą, a koszt jednego węzła więcej to kilka milisekund renderu, który i tak trwa minuty. W Unrealu ten sam nawyk mnoży czasy kompilacji shaderów, pamięć i zmiany stanu przy draw callach w skali całego projektu. Dyscyplina, która to zastępuje: zaprojektuj niewielką liczbę masterów według <em>rodzin materiałowych</em> — tych samych rodzin, które ta książka buduje od Rozdziału 13 (nieprzezroczysty dielektryk, metal, warstwowy z coatem, skóra, tkanina, włosy, szkło) — wystaw ich parametry i całą pracę per asset rób w instancjach.</span>
+    </p>
+    <p>
+      <span lang="en">Two mechanisms make the masters themselves maintainable. <strong>Material Functions</strong> are reusable subgraphs — the direct analogue of a MaterialX nodegraph or an OSL utility shader — so a channel-packing convention or a detail-normal blend is authored once and referenced everywhere. <strong>Material Layers</strong> (layer and layer-blend assets) let an instance stack authored layers, which is how a "layered material" is normally built for artists in Unreal, distinct from Substrate's shading-level layering below.</span>
+      <span lang="pl">Dwa mechanizmy sprawiają, że same mastery pozostają utrzymywalne. <strong>Material Functions</strong> to reużywalne podgrafy — bezpośredni odpowiednik nodegraphu MaterialX albo pomocniczego shadera OSL — dzięki czemu konwencja channel packingu albo miks detalowej normalnej powstaje raz i jest referencjonowana wszędzie. <strong>Material Layers</strong> (assety warstwy i miksu warstw) pozwalają instancji układać gotowe warstwy i tak zwykle buduje się w Unrealu „materiał warstwowy" dla artystów — co jest czymś innym niż warstwowanie na poziomie cieniowania w Substrate opisane niżej.</span>
+    </p>
+  </div>
+
+  <div class="diagram-frame">
+    <div class="diagram-hud"><span>Master.and.instances</span><span><span lang="en">one compiled program, many parameter tables</span><span lang="pl">jeden skompilowany program, wiele tablic parametrów</span></span></div>
+    <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg">
+      <g font-family="IBM Plex Mono" font-size="10">
+        <rect x="60" y="40" width="220" height="64" fill="#2a3038" stroke="#e8a33d" stroke-width="1.5"/>
+        <text x="170" y="64" text-anchor="middle" fill="#e8a33d"><tspan lang="en">M_Master_Dielectric</tspan><tspan lang="pl">M_Master_Dielectric</tspan></text>
+        <text x="170" y="80" text-anchor="middle" fill="#8b909b"><tspan lang="en">node graph → compiled shader</tspan><tspan lang="pl">graf węzłów → skompilowany shader</tspan></text>
+        <text x="170" y="94" text-anchor="middle" fill="#8b909b"><tspan lang="en">+ 1 variant per static switch</tspan><tspan lang="pl">+ 1 wariant na przełącznik statyczny</tspan></text>
+
+        <path d="M 170,104 L 170,124 L 400,124" fill="none" stroke="#8b909b" stroke-width="1.2"/>
+        <path d="M 170,124 L 170,150" fill="none" stroke="#8b909b" stroke-width="1.2"/>
+        <path d="M 400,124 L 620,124" fill="none" stroke="#8b909b" stroke-width="1.2"/>
+        <path d="M 400,124 L 400,150" fill="none" stroke="#8b909b" stroke-width="1.2"/>
+        <path d="M 620,124 L 620,150" fill="none" stroke="#8b909b" stroke-width="1.2"/>
+
+        <rect x="96" y="150" width="148" height="50" fill="none" stroke="#4fc3c0"/>
+        <text x="170" y="170" text-anchor="middle" fill="#4fc3c0">MI_LeatherJacket</text>
+        <text x="170" y="186" text-anchor="middle" fill="#8b909b">rough 0,42 · 3 tex</text>
+
+        <rect x="326" y="150" width="148" height="50" fill="none" stroke="#4fc3c0"/>
+        <text x="400" y="170" text-anchor="middle" fill="#4fc3c0">MI_PaintedWall</text>
+        <text x="400" y="186" text-anchor="middle" fill="#8b909b">rough 0,68 · 2 tex</text>
+
+        <rect x="546" y="150" width="148" height="50" fill="none" stroke="#4fc3c0"/>
+        <text x="620" y="170" text-anchor="middle" fill="#4fc3c0">MI_PlasticCrate</text>
+        <text x="620" y="186" text-anchor="middle" fill="#8b909b">rough 0,25 · 2 tex</text>
+
+        <text x="320" y="60" fill="#a98cd8"><tspan lang="en">changing this costs a recompile</tspan><tspan lang="pl">zmiana tutaj kosztuje rekompilację</tspan></text>
+        <text x="320" y="92" fill="#8b909b"><tspan lang="en">changing an instance below costs nothing</tspan><tspan lang="pl">zmiana w instancji poniżej nie kosztuje nic</tspan></text>
+        <text x="60" y="222" fill="#8b909b"><tspan lang="en">The VFX habit — one graph per asset — would draw three orange boxes instead of one.</tspan><tspan lang="pl">Nawyk z VFX — jeden graf na asset — narysowałby trzy pomarańczowe pudełka zamiast jednego.</tspan></text>
+      </g>
+    </svg>
+    <div class="diagram-caption"><span lang="en">Parameters exposed on the master become the instance's controls. Anything not exposed can only be changed by editing — and recompiling — the master itself.</span><span lang="pl">Parametry wystawione na masterze stają się kontrolkami instancji. Czego nie wystawiono, tego nie zmienisz bez edycji — i rekompilacji — samego mastera.</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: The Rosetta row</span><span lang="pl">Etap: Wiersz Rosetty</span></div>
+    <h2><span lang="en">The same parameters under a third set of names</span><span lang="pl">Te same parametry pod trzecim zestawem nazw</span></h2>
+    <p>
+      <span lang="en">Appendix N built a Rosetta table between Arnold and RenderMan. Unreal adds a third column, and reading it is mostly an exercise in recognising old friends — with two traps worth naming. First, Unreal's <code>Specular</code> input is <em>not</em> a specular colour or intensity in the Arnold sense: it is a remap of dielectric F0 around 0,04, and the correct value for almost every dielectric is the default 0,5. Second, <code>Metallic</code> is the metalness workflow of Chapter 14, with all its consequences — it is a switch, not a dial, and intermediate values are for transitions in a mask, not for "slightly metallic" materials.</span>
+      <span lang="pl">Dodatek N zbudował tabelę Rosetty między Arnoldem a RenderManem. Unreal dokłada trzecią kolumnę, a jej czytanie to głównie rozpoznawanie starych znajomych — z dwiema pułapkami wartymi nazwania. Po pierwsze, wejście <code>Specular</code> w Unrealu <em>nie jest</em> kolorem ani intensywnością specularu w rozumieniu Arnolda: to remap dielektrycznego F0 wokół 0,04, a poprawna wartość dla prawie każdego dielektryka to domyślne 0,5. Po drugie, <code>Metallic</code> to metalness workflow z Rozdziału 14, ze wszystkimi jego konsekwencjami — to przełącznik, nie pokrętło, a wartości pośrednie służą przejściom w masce, nie materiałom „lekko metalicznym".</span>
+    </p>
+    <div class="table-frame" lang="en">
+      <table class="data-table">
+        <thead><tr><th>Meaning</th><th>Arnold</th><th>RenderMan</th><th>Unreal Engine 5</th></tr></thead>
+        <tbody>
+          <tr><td>Diffuse albedo</td><td><code>base_color</code> × <code>base</code></td><td><code>diffuseColor</code> × <code>diffuseGain</code></td><td><code>Base Color</code></td></tr>
+          <tr><td>Metal switch</td><td><code>metalness</code></td><td>Artistic/Physical mode</td><td><code>Metallic</code></td></tr>
+          <tr><td>Dielectric F0</td><td><code>specular_IOR</code></td><td><code>specularIor</code> / Face Color</td><td><code>Specular</code> (0,5 ⇒ F0 = 0,04)</td></tr>
+          <tr><td>Microfacet roughness</td><td><code>specular_roughness</code></td><td><code>specularRoughness</code></td><td><code>Roughness</code></td></tr>
+          <tr><td>Coat layer</td><td><code>coat</code>, <code>coat_roughness</code></td><td><code>clearcoat</code>*</td><td>Clear Coat shading model, or a Substrate coat operator</td></tr>
+          <tr><td>Subsurface</td><td><code>subsurface</code>, <code>subsurface_radius</code></td><td><code>subsurfaceGain</code>, MFP</td><td>Subsurface Profile asset</td></tr>
+          <tr><td>Emission</td><td><code>emission</code> × <code>emission_color</code></td><td><code>glowGain</code></td><td><code>Emissive Color</code> (in cd/m² when using physical light units)</td></tr>
+          <tr><td>Opacity cutout</td><td><code>opacity</code></td><td><code>presence</code></td><td><code>Opacity Mask</code> + Masked blend mode</td></tr>
+          <tr><td>Displacement</td><td>displacement shader</td><td>displacement shader</td><td>World Position Offset / Nanite tessellation</td></tr>
+        </tbody>
+      </table>
+      <div class="table-caption">*RenderMan's coat lives in PxrSurface's clearcoat lobe; the table names intent, not identical maths — every engine approximates the coat differently at grazing angles.</div>
+    </div>
+    <div class="table-frame" lang="pl">
+      <table class="data-table">
+        <thead><tr><th>Znaczenie</th><th>Arnold</th><th>RenderMan</th><th>Unreal Engine 5</th></tr></thead>
+        <tbody>
+          <tr><td>Albedo diffuse</td><td><code>base_color</code> × <code>base</code></td><td><code>diffuseColor</code> × <code>diffuseGain</code></td><td><code>Base Color</code></td></tr>
+          <tr><td>Przełącznik metalu</td><td><code>metalness</code></td><td>tryb Artistic/Physical</td><td><code>Metallic</code></td></tr>
+          <tr><td>F0 dielektryka</td><td><code>specular_IOR</code></td><td><code>specularIor</code> / Face Color</td><td><code>Specular</code> (0,5 ⇒ F0 = 0,04)</td></tr>
+          <tr><td>Roughness mikrofasetek</td><td><code>specular_roughness</code></td><td><code>specularRoughness</code></td><td><code>Roughness</code></td></tr>
+          <tr><td>Warstwa coat</td><td><code>coat</code>, <code>coat_roughness</code></td><td><code>clearcoat</code>*</td><td>model Clear Coat albo operator coat w Substrate</td></tr>
+          <tr><td>Subsurface</td><td><code>subsurface</code>, <code>subsurface_radius</code></td><td><code>subsurfaceGain</code>, MFP</td><td>asset Subsurface Profile</td></tr>
+          <tr><td>Emisja</td><td><code>emission</code> × <code>emission_color</code></td><td><code>glowGain</code></td><td><code>Emissive Color</code> (w cd/m² przy fizycznych jednostkach światła)</td></tr>
+          <tr><td>Wycinanie opacity</td><td><code>opacity</code></td><td><code>presence</code></td><td><code>Opacity Mask</code> + blend mode Masked</td></tr>
+          <tr><td>Displacement</td><td>shader displacement</td><td>shader displacement</td><td>World Position Offset / teselacja Nanite</td></tr>
+        </tbody>
+      </table>
+      <div class="table-caption">*Coat RenderMana siedzi w lobie clearcoat PxrSurface; tabela nazywa intencję, nie identyczną matematykę — każdy silnik inaczej przybliża coat przy kątach ślizgowych.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: Substrate</span><span lang="pl">Etap: Substrate</span></div>
+    <h2><span lang="en">From a list of models to a stack of slabs</span><span lang="pl">Od listy modeli do stosu slabów</span></h2>
+    <p>
+      <span lang="en">The fixed shading-model list is the part of Unreal that a lookdev artist coming from Chapter 15 misses most: there is no way, in the classic path, to put a thin coat over a cloth sheen over a metal base, because each of those <em>is</em> a whole model, and a pixel gets one. <strong>Substrate</strong> attacks exactly this. A material is built from <strong>slabs</strong> — parametrised BSDF layers — combined by operators: vertical layering (one slab under another, with coverage and transmission between them), horizontal blending (a mask picking between slabs, the way a texture mask picks between materials), and a dedicated coat.</span>
+      <span lang="pl">Zamknięta lista modeli cieniowania to część Unreala, której lookdev artysta po Rozdziale 15 brakuje najbardziej: w klasycznej ścieżce nie da się położyć cienkiego coatu nad sheenem tkaniny nad metaliczną bazą, bo każde z tych trzech <em>jest</em> całym modelem, a piksel dostaje jeden. <strong>Substrate</strong> atakuje dokładnie to. Materiał składa się ze <strong>slabów</strong> — sparametryzowanych warstw BSDF — łączonych operatorami: warstwowanie pionowe (jeden slab pod drugim, z pokryciem i transmisją między nimi), miks poziomy (maska wybierająca między slabami, tak jak maska tekstury wybiera między materiałami) i osobny coat.</span>
+    </p>
+    <p>
+      <span lang="en">Structurally this is the same idea as the closure stack of Chapter 15 and as MaterialX's layered shading — and the same trade-off appears immediately. Layers cost G-Buffer space, so Substrate projects carry a <strong>bytes-per-pixel budget</strong> and materials exceeding it get simplified. That budget is now part of lookdev: "how many slabs does this asset deserve" is a question with a memory answer, not only an aesthetic one. Substrate is enabled per project and, as of this writing, still carries migration caveats — it changes how existing materials shade, so it is a project-start decision, not a mid-production toggle.</span>
+      <span lang="pl">Strukturalnie to ta sama idea co stos closure'ów z Rozdziału 15 i co warstwowe cieniowanie w MaterialX — i natychmiast pojawia się ten sam kompromis. Warstwy kosztują miejsce w G-Bufferze, więc projekty na Substrate mają <strong>budżet bajtów na piksel</strong>, a materiały, które go przekraczają, są upraszczane. Ten budżet staje się częścią lookdevu: „ile slabów zasługuje ten asset" to pytanie z odpowiedzią pamięciową, nie tylko estetyczną. Substrate włącza się per projekt i — na moment pisania — wciąż niesie zastrzeżenia migracyjne: zmienia sposób cieniowania istniejących materiałów, więc to decyzja na start projektu, nie przełącznik w trakcie produkcji.</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: Lumen and Nanite</span><span lang="pl">Etap: Lumen i Nanite</span></div>
+    <h2><span lang="en">Two systems that quietly edit your material</span><span lang="pl">Dwa systemy, które po cichu redagują Twój materiał</span></h2>
+    <p>
+      <span lang="en"><strong>Lumen</strong> supplies dynamic global illumination and reflections. Its relevance to lookdev is that it does not light your material from your material: it lights it from a lower-resolution proxy of the scene, the <em>surface cache</em>, which stores a simplified albedo, normal and emissive for nearby geometry. Two consequences bite regularly. Very dark albedos lose bounce light disproportionately, because the cache's simplification and the limited bounce count compound; and small, high-contrast emissive details may contribute far less indirect light than the path tracer says they should. Neither is a bug in your material — but both mean the material as-lit differs from the material as-authored.</span>
+      <span lang="pl"><strong>Lumen</strong> dostarcza dynamiczne oświetlenie globalne i odbicia. Dla lookdevu istotne jest to, że nie oświetla Twojego materiału Twoim materiałem: oświetla go niższej rozdzielczości proxy sceny — <em>surface cache</em> — które przechowuje uproszczone albedo, normalną i emisję pobliskiej geometrii. Dwie konsekwencje gryzą regularnie. Bardzo ciemne albedo traci światło odbite nieproporcjonalnie mocno, bo uproszczenie cache'u i limit odbić się kumulują; a drobne, kontrastowe detale emisyjne potrafią wnosić znacznie mniej światła pośredniego, niż mówi path tracer. Żadne z tego nie jest błędem Twojego materiału — ale oba oznaczają, że materiał oświetlony różni się od materiału zautorowanego.</span>
+    </p>
+    <p>
+      <span lang="en"><strong>Nanite</strong> virtualises geometry, and for materials it mainly imposes rules: opaque materials are the cheap, fully supported case; masked materials and world-position offset are supported but cost more and interact with how Nanite culls; translucency stays outside it. Nanite's tessellation, added later in the 5.x line, is the one path that turns a height map into real displaced geometry at run time — the realtime echo of Chapter 20, with the same warning attached: displacement is geometry, and geometry is a budget.</span>
+      <span lang="pl"><strong>Nanite</strong> wirtualizuje geometrię, a materiałom przede wszystkim narzuca reguły: materiały nieprzezroczyste to przypadek tani i w pełni wspierany; materiały masked i world position offset są wspierane, ale kosztują więcej i wchodzą w interakcję z tym, jak Nanite odrzuca niewidoczne fragmenty; transparencja zostaje poza nim. Teselacja Nanite, dodana później w linii 5.x, to jedyna ścieżka zamieniająca mapę wysokości w prawdziwie przesuniętą geometrię w czasie działania — realtime'owe echo Rozdziału 20, z tym samym ostrzeżeniem: displacement to geometria, a geometria to budżet.</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: Ground truth</span><span lang="pl">Etap: Referencja</span></div>
+    <h2><span lang="en">The path tracer is your Arnold</span><span lang="pl">Path tracer jest Twoim Arnoldem</span></h2>
+    <p>
+      <span lang="en">Everything above is approximation, and approximation is only safe when you can measure it. Unreal's built-in path tracer renders the same scene, the same materials and the same lights with real transport, and switching between it and the realtime view is the engine's version of the A/B a lookdev artist does all day. Three checks pay for themselves immediately: energy (does a rough metal go dark in Lumen but not in the path tracer — a bounce-count artefact, not a material error), reflections (does a mirror-like surface lose its off-screen content — a screen-space fallback), and subsurface (does thin geometry stop transmitting — the profile approximation of Chapter 24's table).</span>
+      <span lang="pl">Wszystko powyżej to przybliżenie, a przybliżenie jest bezpieczne tylko wtedy, gdy da się je zmierzyć. Wbudowany path tracer Unreala renderuje tę samą scenę, te same materiały i te same światła z prawdziwym transportem, a przełączanie między nim a widokiem realtime to silnikowa wersja porównania A/B, które lookdev artysta robi cały dzień. Trzy sprawdzenia zwracają się natychmiast: energia (czy szorstki metal ciemnieje w Lumenie, a nie ciemnieje w path tracerze — artefakt limitu odbić, nie błąd materiału), odbicia (czy powierzchnia lustrzana gubi treść spoza ekranu — fallback ekranowy) i subsurface (czy cienka geometria przestaje przepuszczać światło — przybliżenie profilem z tabeli w Rozdziale 24).</span>
+    </p>
+    <p>
+      <span lang="en">The path tracer is also what makes an honest turntable possible inside the engine: render the Chapter 22 turntable twice, once realtime and once path traced, and the difference between them <em>is</em> the list of things the shipping renderer will approximate about your look.</span>
+      <span lang="pl">Path tracer umożliwia też uczciwy turntable wewnątrz silnika: wyrenderuj turntable z Rozdziału 22 dwa razy, raz w realtime i raz path tracingiem, a różnica między nimi <em>jest</em> listą rzeczy, które docelowy renderer przybliży w Twoim looku.</span>
+    </p>
+  </div>
+
+  <div class="panel practice">
+    <div class="panel-label"><span lang="en">From practice</span><span lang="pl">Z praktyki</span></div>
+    <p>
+      <span lang="en">Two numbers belong on screen while authoring a master material: the instruction count and the texture sampler count, both in the editor's stats. Samplers are the harder wall — a material has a small fixed number of them, and a graph that samples one texture per channel hits it long before it looks finished. That constraint is the reason for channel packing, which Chapter 27 treats properly. Also: check the material's cost in the shader-complexity view before, not after, the art director approves it.</span>
+      <span lang="pl">Dwie liczby powinny być na ekranie przy autorowaniu master materiału: liczba instrukcji i liczba samplerów tekstur, obie w statystykach edytora. Samplery to twardsza ściana — materiał ma ich małą, stałą liczbę, a graf próbkujący jedną teksturę na kanał uderza w nią na długo przed tym, jak zacznie wyglądać na skończony. To ograniczenie jest powodem channel packingu, którym porządnie zajmuje się Rozdział 27. I jeszcze: sprawdź koszt materiału w widoku złożoności shadera <em>przed</em>, a nie po akceptacji art directora.</span>
+    </p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label"><span lang="en">Glossary</span><span lang="pl">Słowniczek</span></div>
+    <dl>
+      <dt><span lang="en">Master material / Material Instance</span><span lang="pl">Master material / Material Instance</span></dt>
+      <dd><span lang="en">A compiled shader graph, and a lightweight override of its exposed parameters that reuses the same compiled program.</span><span lang="pl">Skompilowany graf shadera i lekkie nadpisanie jego wystawionych parametrów, korzystające z tego samego skompilowanego programu.</span></dd>
+      <dt><span lang="en">Material Function / Material Layers</span><span lang="pl">Material Function / Material Layers</span></dt>
+      <dd><span lang="en">A reusable subgraph; and the asset pair (layer + blend) that lets an instance stack authored layers.</span><span lang="pl">Reużywalny podgraf; oraz para assetów (warstwa + miks) pozwalająca instancji układać gotowe warstwy.</span></dd>
+      <dt><span lang="en">Shading model</span><span lang="pl">Model cieniowania</span></dt>
+      <dd><span lang="en">Unreal's per-material choice from a closed list, deciding how the G-Buffer slots are interpreted.</span><span lang="pl">Wybór per materiał z zamkniętej listy w Unrealu, decydujący o interpretacji slotów G-Buffera.</span></dd>
+      <dt><span lang="en">Substrate slab / operator</span><span lang="pl">Slab / operator w Substrate</span></dt>
+      <dd><span lang="en">A parametrised BSDF layer, and the vertical/horizontal/coat combinators that assemble slabs into a material.</span><span lang="pl">Sparametryzowana warstwa BSDF oraz kombinatory pionowy/poziomy/coat składające slaby w materiał.</span></dd>
+      <dt><span lang="en">Lumen surface cache</span><span lang="pl">Surface cache Lumena</span></dt>
+      <dd><span lang="en">The simplified albedo/normal/emissive proxy Lumen lights the scene from — not your full material.</span><span lang="pl">Uproszczone proxy albedo/normalnej/emisji, z którego Lumen oświetla scenę — nie Twój pełny materiał.</span></dd>
+      <dt><span lang="en">Specular input (UE)</span><span lang="pl">Wejście Specular (UE)</span></dt>
+      <dd><span lang="en">A remap of dielectric F0 around 0,04, default 0,5 — not a specular colour or intensity.</span><span lang="pl">Remap dielektrycznego F0 wokół 0,04, domyślnie 0,5 — nie kolor ani intensywność specularu.</span></dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);"><span lang="en">What's next</span><span lang="pl">Co dalej</span></div>
+    <p>
+      <span lang="en">Materials are only half of a look. Chapter 26 takes the other half into the engine: what working colour space means in Unreal, why its tonemapper is a fixed part of every screenshot you judge, and how the Post Process colour grading controls turn out to be the offset/gain/gamma and ASC CDL of Chapters 7–8 under new labels.</span>
+      <span lang="pl">Materiały to tylko połowa looku. Rozdział 26 przenosi do silnika drugą połowę: co znaczy working color space w Unrealu, dlaczego jego tonemapper jest stałą częścią każdego zrzutu, który oceniasz, i jak kontrolki color gradingu w Post Process okazują się offsetem, gainem, gammą i ASC CDL z Rozdziałów 7–8 pod nowymi etykietami.</span>
+    </p>
+  </div>
+
+<div class="site-nav chapter-nav">
+    <a class="nav-prev" href="rozdzial-24-offline-kontra-realtime.html"><span lang="en">← Previous</span><span lang="pl">← Poprzedni</span></a>
+    <a class="nav-toc" href="../index.html"><span lang="en">Contents</span><span lang="pl">Spis treści</span></a>
+    <a class="nav-next" href="rozdzial-26-kolor-i-tone-mapping-w-realtime.html"><span lang="en">Next →</span><span lang="pl">Następny →</span></a>
+</div>
+</div>
+<script type="module" src="../assets/i18n.js"></script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en" data-i18n-storage="ldb-lang" data-i18n-default="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-title-en="Chapter 28 — REDengine and in-house engines" data-title-pl="Rozdział 28 — RED Engine i silniki autorskie">Chapter 28 — REDengine and in-house engines</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/widgets.css">
+<script>
+(function () {
+  var d = document.documentElement, l = null;
+  var storeKey = d.dataset.i18nStorage || 'i18n-lang';
+  var fallback = d.dataset.i18nDefault === 'pl' ? 'pl' : 'en';
+  try { l = new URLSearchParams(location.search).get('lang') || localStorage.getItem(storeKey); } catch (e) {}
+  if (l !== 'en' && l !== 'pl') l = (navigator.language || '').toLowerCase().indexOf('pl') === 0 ? 'pl' : fallback;
+  d.setAttribute('data-lang', l); d.lang = l; d.classList.add('js');
+})();
+</script>
+</head>
+<body>
+<nav class="topnav topnav--i18n">
+  <a class="topnav__brand" href="../index.html">Lookdev <span>dla Artystów Technicznych</span></a>
+  <div class="topnav__links">
+    <a href="../index.html"><span lang="en">Contents</span><span lang="pl">Spis treści</span></a>
+    <a href="rozdzial-27-budzet-tekstur-i-shaderow-pod-gpu.html"><span lang="en">← Previous</span><span lang="pl">← Poprzedni</span></a>
+    <a href="rozdzial-29-epilog.html"><span lang="en">Next →</span><span lang="pl">Następny →</span></a>
+  </div>
+  <div class="lang-switch" role="group" aria-label="Language / Język">
+    <button type="button" data-set-lang="en" class="is-active" aria-pressed="true">EN</button>
+    <button type="button" data-set-lang="pl" aria-pressed="false">PL</button>
+  </div>
+</nav>
+<div class="page">
+
+  <div class="viewport-readout">
+    <span><span lang="en">ENGINE · in-house, undocumented</span><span lang="pl">SILNIK · autorski, bez dokumentacji</span></span><span><span lang="en">MATERIAL · layers over a base, mask-driven</span><span lang="pl">MATERIAŁ · warstwy na bazie, sterowane maskami</span></span><span><span lang="en">MODES · raster · hybrid RT · path traced</span><span lang="pl">TRYBY · raster · hybryda RT · path tracing</span></span>
+  </div>
+
+  <div class="eyebrow"><span lang="en">Chapter 28 / Realtime lookdev</span><span lang="pl">Rozdział 28 / Lookdev realtime</span></div>
+  <h1><span lang="en">REDengine and in-house engines</span><span lang="pl">RED Engine i silniki autorskie</span></h1>
+  <p class="subtitle">
+    <span lang="en">Most AAA studios ship on an engine nobody outside them has documentation for. What a lookdev artist actually needs there isn't the manual — it's the ability to work out, from the engine's behaviour, which of this book's rules still hold.</span>
+    <span lang="pl">Większość studiów AAA wydaje gry na silniku, do którego nikt z zewnątrz nie ma dokumentacji. Lookdev artysta potrzebuje tam nie instrukcji obsługi, tylko umiejętności wywnioskowania z zachowania silnika, które zasady z tej książki wciąż obowiązują.</span>
+  </p>
+
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>
+        <span lang="en">REDengine — CD Projekt RED's in-house technology, REDengine 3 for The Witcher 3 and <span class="term-amber">REDengine 4 for Cyberpunk 2077</span> — is a useful case study precisely because it is proprietary: it shows what an engine built around one game's needs optimises for, and what that costs an artist arriving from a documented tool.</span>
+        <span lang="pl">REDengine — autorska technologia CD Projekt RED, REDengine 3 pod Wiedźmina 3 i <span class="term-amber">REDengine 4 pod Cyberpunka 2077</span> — jest dobrym studium przypadku właśnie dlatego, że jest zamknięty: pokazuje, pod co optymalizuje silnik zbudowany wokół potrzeb jednej gry i ile to kosztuje artystę przychodzącego z udokumentowanego narzędzia.</span>
+      </li>
+      <li>
+        <span lang="en">Its material workflow is <span class="term-cyan">layer-and-mask based, not node-graph based</span>: a base material template plus a stack of library layers, each with its own mask, tint and roughness/metalness overrides. That is the layered material of Chapter 15 and Appendix Q expressed as data rather than as a graph — and it makes consistency across a whole city easy and one-off artistic exceptions hard, which is exactly the trade a big open world wants.</span>
+        <span lang="pl">Jego workflow materiałowy jest <span class="term-cyan">oparty na warstwach i maskach, nie na grafie węzłów</span>: bazowy szablon materiału plus stos warstw z biblioteki, każda z własną maską, tintem i nadpisaniami roughness/metalness. To materiał warstwowy z Rozdziału 15 i Dodatku Q wyrażony jako dane, a nie jako graf — i sprawia, że spójność w skali całego miasta jest łatwa, a jednorazowe artystyczne wyjątki trudne, czyli dokładnie tak, jak chce tego duży otwarty świat.</span>
+      </li>
+      <li>
+        <span lang="en">Cyberpunk 2077 shipped a rasterised path, a hybrid ray-traced path and later a fully <span class="term-violet">path-traced mode</span>. For lookdev that is the whole lesson of this part in one product: the same materials had to hold up under three renderers of very different fidelity, so anything tuned to compensate for a screen-space limitation broke the moment real light transport was switched on.</span>
+        <span lang="pl">Cyberpunk 2077 wyszedł ze ścieżką rasteryzowaną, hybrydową ścieżką ray tracingową, a później z trybem pełnego <span class="term-violet">path tracingu</span>. Dla lookdevu to cała lekcja tej części w jednym produkcie: te same materiały musiały bronić się w trzech rendererach o bardzo różnej wierności, więc wszystko, co dostrojono jako kompensację ograniczenia ekranowego, pękało w chwili włączenia prawdziwego transportu światła.</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="panel note">
+    <div class="panel-label"><span lang="en">On sources</span><span lang="pl">O źródłach</span></div>
+    <p>
+      <span lang="en">REDengine has no public documentation. What follows is drawn from CD Projekt RED's own conference talks and technical presentations, from the studio's public statements about its engine plans, and from the file formats the modding community has documented from shipped game data. Treat the concepts as reliable and the exact internal names, tool layouts and parameter ranges as approximate — they are not vendor-published, and they changed between titles.</span>
+      <span lang="pl">REDengine nie ma publicznej dokumentacji. To, co poniżej, pochodzi z konferencyjnych prelekcji i prezentacji technicznych CD Projekt RED, z publicznych wypowiedzi studia o planach wobec silnika oraz z formatów plików udokumentowanych przez społeczność moderską na podstawie danych wydanej gry. Traktuj koncepcje jako wiarygodne, a dokładne nazwy wewnętrzne, układ narzędzi i zakresy parametrów jako przybliżone — nie są publikowane przez producenta i zmieniały się między tytułami.</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: Why in-house</span><span lang="pl">Etap: Dlaczego autorski</span></div>
+    <h2><span lang="en">An engine shaped by one game</span><span lang="pl">Silnik ukształtowany przez jedną grę</span></h2>
+    <p>
+      <span lang="en">A licensed engine has to be good at everything; an in-house engine only has to be good at the studio's game, and it is built by people sitting in the same building as the artists using it. REDengine 4 was shaped by a dense, vertical, night-time city with heavy volumetrics, a day-night cycle, a huge amount of screen-facing emissive signage and crowds — and the technology reflects those priorities everywhere, including in its material system.</span>
+      <span lang="pl">Silnik licencjonowany musi być dobry we wszystkim; silnik autorski musi być dobry tylko w grze swojego studia i budują go ludzie siedzący w tym samym budynku co artyści, którzy go używają. REDengine 4 został ukształtowany przez gęste, pionowe, nocne miasto z ciężką wolumetryką, cyklem dobowym, ogromną ilością emisyjnych szyldów zwróconych do kamery i tłumami — a technologia odbija te priorytety wszędzie, również w systemie materiałów.</span>
+    </p>
+    <p>
+      <span lang="en">The trade for an artist is direct. In exchange for tooling that fits the game unusually well, you lose the documentation, the community answers, the transferable skill and — the part that surprises people from VFX most — the ability to look up what an approximation actually does. When the engine is Arnold you can read the reference; when the engine is in-house, the reference is a colleague and a test scene.</span>
+      <span lang="pl">Wymiana dla artysty jest bezpośrednia. W zamian za oprzyrządowanie pasujące do gry wyjątkowo dobrze tracisz dokumentację, odpowiedzi społeczności, przenośność umiejętności i — to zaskakuje ludzi z VFX najbardziej — możliwość sprawdzenia, co naprawdę robi dane przybliżenie. Kiedy silnikiem jest Arnold, możesz przeczytać dokumentację; kiedy silnik jest autorski, dokumentacją jest kolega i scena testowa.</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: The material system</span><span lang="pl">Etap: System materiałów</span></div>
+    <h2><span lang="en">Layers from a library, not a graph per asset</span><span lang="pl">Warstwy z biblioteki, nie graf na asset</span></h2>
+    <p>
+      <span lang="en">Cyberpunk's surfacing is built on a multilayer setup: a base material template defines the shading, and on top of it sits an ordered stack of layers. Each layer references a shared <em>layer template</em> from a studio-wide library — worn paint, brushed steel, dirt, rust, fabric weave — and carries its own mask, colour tint, and overrides for roughness, metalness, normal strength and tiling. A separate fine "microblend" normal adds close-up detail that the mask resolution can't carry.</span>
+      <span lang="pl">Powierzchnie w Cyberpunku zbudowane są na wielowarstwowym setupie: bazowy szablon materiału definiuje cieniowanie, a na nim siedzi uporządkowany stos warstw. Każda warstwa odwołuje się do współdzielonego <em>szablonu warstwy</em> z ogólnostudyjnej biblioteki — zdarta farba, szczotkowana stal, brud, rdza, splot tkaniny — i niesie własną maskę, tint koloru oraz nadpisania roughness, metalness, siły normalnej i tilingu. Osobna drobna normalna „microblend" dokłada detal ze zbliżenia, którego rozdzielczość maski nie udźwignie.</span>
+    </p>
+    <p>
+      <span lang="en">Read against Chapter 15, this is a layered material with the blending done at authoring time over the surface, rather than at shading time between BSDF lobes: the layers resolve into one set of surface parameters before lighting, which is what makes it affordable inside the G-Buffer budget of Chapter 24. Read against Chapter 25, it is the opposite end of the same spectrum from a node graph — less expressive per asset, dramatically more consistent across thousands of them, and far easier to re-tune globally when the art direction of "how worn is this world" changes in month eighteen.</span>
+      <span lang="pl">Czytany przez Rozdział 15, jest to materiał warstwowy, w którym miks odbywa się na etapie autorowania, po powierzchni, a nie na etapie cieniowania, między lobami BSDF: warstwy rozwiązują się w jeden zestaw parametrów powierzchni jeszcze przed oświetleniem i to właśnie czyni je osiągalnymi w budżecie G-Buffera z Rozdziału 24. Czytany przez Rozdział 25, jest przeciwnym końcem tego samego spektrum niż graf węzłów — mniej ekspresyjny per asset, dramatycznie bardziej spójny w skali tysięcy assetów i o wiele łatwiejszy do globalnego przestrojenia, kiedy w osiemnastym miesiącu zmienia się kierunek artystyczny „jak bardzo zużyty jest ten świat".</span>
+    </p>
+    <p>
+      <span lang="en">The library is the real lesson here, and it generalises to any studio: the set of layer templates <em>is</em> the look of the game, far more than any individual asset is. Adding a layer to it is a decision with the weight of a shared shader in VFX, and the discipline it needs — measured albedo values, a consistent roughness convention, one naming scheme — is exactly the discipline Chapters 13–14 and Appendix P argued for.</span>
+      <span lang="pl">Prawdziwą lekcją jest tu biblioteka i uogólnia się ona na każde studio: zestaw szablonów warstw <em>jest</em> lookiem gry, dużo bardziej niż jakikolwiek pojedynczy asset. Dodanie do niego warstwy to decyzja o ciężarze współdzielonego shadera w VFX, a dyscyplina, której wymaga — zmierzone wartości albedo, spójna konwencja roughness, jeden schemat nazewnictwa — to dokładnie ta dyscyplina, o którą upominały się Rozdziały 13–14 i Dodatek P.</span>
+    </p>
+  </div>
+
+  <div class="diagram-frame">
+    <div class="diagram-hud"><span>Layer.stack</span><span><span lang="en">base template + masked library layers, resolved before lighting</span><span lang="pl">szablon bazowy + maskowane warstwy z biblioteki, rozwiązane przed oświetleniem</span></span></div>
+    <svg viewBox="0 0 760 240" xmlns="http://www.w3.org/2000/svg">
+      <g font-family="IBM Plex Mono" font-size="10">
+        <rect x="60" y="176" width="300" height="28" fill="#2a3038" stroke="#6e93be"/>
+        <text x="210" y="194" text-anchor="middle" fill="#6e93be"><tspan lang="en">base material template</tspan><tspan lang="pl">bazowy szablon materiału</tspan></text>
+
+        <rect x="60" y="140" width="300" height="28" fill="#2a3038" stroke="#4fc3c0"/>
+        <text x="210" y="158" text-anchor="middle" fill="#4fc3c0"><tspan lang="en">layer 1 · painted steel · mask A</tspan><tspan lang="pl">warstwa 1 · malowana stal · maska A</tspan></text>
+
+        <rect x="60" y="104" width="300" height="28" fill="#2a3038" stroke="#e8a33d"/>
+        <text x="210" y="122" text-anchor="middle" fill="#e8a33d"><tspan lang="en">layer 2 · edge wear · mask B</tspan><tspan lang="pl">warstwa 2 · przetarcia krawędzi · maska B</tspan></text>
+
+        <rect x="60" y="68" width="300" height="28" fill="#2a3038" stroke="#a98cd8"/>
+        <text x="210" y="86" text-anchor="middle" fill="#a98cd8"><tspan lang="en">layer 3 · grime · mask C</tspan><tspan lang="pl">warstwa 3 · zabrudzenie · maska C</tspan></text>
+
+        <rect x="60" y="32" width="300" height="28" fill="none" stroke="#8b909b" stroke-dasharray="4 3"/>
+        <text x="210" y="50" text-anchor="middle" fill="#8b909b"><tspan lang="en">microblend detail normal</tspan><tspan lang="pl">detalowa normalna microblend</tspan></text>
+
+        <path d="M 380,118 L 424,118" stroke="#8b909b" stroke-width="1.5"/>
+        <path d="M 416,112 L 426,118 L 416,124 Z" fill="#8b909b"/>
+
+        <rect x="440" y="68" width="140" height="100" fill="none" stroke="#c8ccd4"/>
+        <text x="510" y="98" text-anchor="middle" fill="#c8ccd4"><tspan lang="en">one surface</tspan><tspan lang="pl">jeden zestaw</tspan></text>
+        <text x="510" y="114" text-anchor="middle" fill="#c8ccd4"><tspan lang="en">parameter set</tspan><tspan lang="pl">parametrów</tspan></text>
+        <text x="510" y="138" text-anchor="middle" fill="#8b909b">base · rough · metal · N</text>
+
+        <path d="M 596,118 L 640,118" stroke="#8b909b" stroke-width="1.5"/>
+        <path d="M 632,112 L 642,118 L 632,124 Z" fill="#8b909b"/>
+        <text x="656" y="114" fill="#8b909b"><tspan lang="en">G-Buffer</tspan><tspan lang="pl">G-Buffer</tspan></text>
+        <text x="656" y="130" fill="#8b909b"><tspan lang="en">→ lighting</tspan><tspan lang="pl">→ oświetlenie</tspan></text>
+
+        <text x="60" y="228" fill="#8b909b"><tspan lang="en">The stack is flattened at authoring time — the renderer never sees three layers, only their result.</tspan><tspan lang="pl">Stos jest spłaszczany na etapie autorowania — renderer nigdy nie widzi trzech warstw, tylko ich wynik.</tspan></text>
+      </g>
+    </svg>
+    <div class="diagram-caption"><span lang="en">The structural difference from Chapter 15's stack: there, layers are BSDF lobes combined during shading; here they are surface parameters combined before it. The artistic vocabulary is the same, the cost model is not.</span><span lang="pl">Strukturalna różnica względem stosu z Rozdziału 15: tam warstwy to loby BSDF łączone w trakcie cieniowania; tutaj to parametry powierzchni łączone przed nim. Słownictwo artystyczne jest to samo, model kosztu — nie.</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: Three renderers, one look</span><span lang="pl">Etap: Trzy renderery, jeden look</span></div>
+    <h2><span lang="en">What the path-traced mode revealed</span><span lang="pl">Co obnażył tryb path tracingu</span></h2>
+    <p>
+      <span lang="en">Cyberpunk 2077 launched with a rasterised renderer plus optional ray-traced reflections, shadows and diffuse illumination, and later added a fully path-traced mode built on modern importance-resampling and denoising techniques. Three fidelity levels, one asset library, and every material in the game visible in all of them.</span>
+      <span lang="pl">Cyberpunk 2077 wystartował z rendererem rasteryzowanym plus opcjonalnymi ray tracingowymi odbiciami, cieniami i oświetleniem rozproszonym, a później dostał tryb pełnego path tracingu zbudowany na współczesnych technikach resamplingu według ważności i odszumiania. Trzy poziomy wierności, jedna biblioteka assetów i każdy materiał w grze widoczny w każdym z nich.</span>
+    </p>
+    <p>
+      <span lang="en">This is the situation Chapter 25 described as an A/B against the path tracer, except lived at production scale, and it produces a specific class of failure worth naming. Materials get tuned against the renderer the artist is looking at. If interiors are lit mainly by a screen-space approximation that loses off-screen bounce, albedos drift brighter to compensate; when path tracing restores the missing light, those same interiors read as washed out. The same happens in reverse with emissive signage: values pushed up to punch through an approximate GI solution become blinding once they light the scene for real.</span>
+      <span lang="pl">To sytuacja, którą Rozdział 25 opisał jako porównanie A/B z path tracerem, tylko przeżyta w skali produkcyjnej — i rodzi konkretną klasę porażek wartą nazwania. Materiały są strojone pod renderer, na który patrzy artysta. Jeśli wnętrza oświetla głównie przybliżenie ekranowe gubiące odbicia spoza ekranu, albedo dryfuje w jaśniejszą stronę jako kompensacja; kiedy path tracing przywraca brakujące światło, te same wnętrza czytają się jako wyprane. To samo dzieje się odwrotnie z emisyjnymi szyldami: wartości podbite, żeby przebić się przez przybliżone GI, oślepiają, gdy zaczną oświetlać scenę naprawdę.</span>
+    </p>
+    <p>
+      <span lang="en">The defence is the one this book has argued for since Chapter 13: author to measured, physical values — albedo in its plausible range, metals as metals, emissives in real photometric units — and let each renderer be wrong in its own way, rather than pre-compensating for one of them. A material built on physical values transfers between fidelity levels; a material built to look right in one of them is a debt payable when the next mode ships.</span>
+      <span lang="pl">Obroną jest to, o co ta książka upomina się od Rozdziału 13: autoruj na zmierzonych, fizycznych wartościach — albedo w prawdopodobnym zakresie, metale jako metale, emisje w prawdziwych jednostkach fotometrycznych — i pozwól każdemu rendererowi mylić się na swój sposób, zamiast kompensować z góry pod jeden z nich. Materiał zbudowany na wartościach fizycznych przenosi się między poziomami wierności; materiał zbudowany tak, żeby wyglądał dobrze w jednym z nich, jest długiem płatnym w dniu premiery kolejnego trybu.</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: The migration</span><span lang="pl">Etap: Migracja</span></div>
+    <h2><span lang="en">When a studio retires its own engine</span><span lang="pl">Kiedy studio wygasza własny silnik</span></h2>
+    <p>
+      <span lang="en">CD Projekt RED announced that its future titles move to Unreal Engine 5, developed in a technology partnership with Epic rather than as a plain adoption. That is a notable data point for anyone weighing how much to invest in learning a proprietary engine: the industry's direction of travel is toward a shared engine with studio-specific extensions, precisely because the maintenance cost of a fully in-house renderer is now measured against a competitor with thousands of engineers.</span>
+      <span lang="pl">CD Projekt RED ogłosiło, że kolejne tytuły powstają na Unreal Engine 5, rozwijanym w partnerstwie technologicznym z Epikiem, a nie po prostu przyjętym z półki. To istotna informacja dla każdego, kto waży, ile zainwestować w naukę zamkniętego silnika: kierunek, w którym idzie branża, to wspólny silnik z rozszerzeniami studia — właśnie dlatego, że koszt utrzymania w pełni autorskiego renderera mierzy się dziś z konkurentem mającym tysiące inżynierów.</span>
+    </p>
+    <p>
+      <span lang="en">For a lookdev artist the reassuring part is what survives such a migration. The layer library survives as concept and often as data. Measured albedo and roughness conventions survive unchanged. Texel density standards, channel-packing conventions and the lookdev level survive. What does not survive is tool muscle memory — and that was always the least valuable thing in the room.</span>
+      <span lang="pl">Dla lookdev artysty uspokajające jest to, co taką migrację przeżywa. Biblioteka warstw przeżywa jako koncept, a często i jako dane. Konwencje zmierzonego albedo i roughness przeżywają bez zmian. Standardy gęstości tekseli, konwencje channel packingu i poziom lookdevowy przeżywają. Nie przeżywa pamięć mięśniowa narzędzia — a to zawsze była najmniej wartościowa rzecz w pokoju.</span>
+    </p>
+    <div class="table-frame" lang="en">
+      <table class="data-table">
+        <thead><tr><th>For lookdev</th><th>In-house engine</th><th>Licensed engine</th></tr></thead>
+        <tbody>
+          <tr><td>Documentation</td><td>Colleagues and test scenes</td><td>Public docs, community, courses</td></tr>
+          <tr><td>Material authoring</td><td>Fitted to the game; often data-driven layers</td><td>General-purpose node graph plus instances</td></tr>
+          <tr><td>Ground-truth reference</td><td>Only if someone built one</td><td>Usually a built-in path tracer</td></tr>
+          <tr><td>Changing the renderer</td><td>Possible — the team owns it</td><td>Constrained to what the engine exposes</td></tr>
+          <tr><td>Skill portability</td><td>Concepts transfer, tools don't</td><td>Both transfer</td></tr>
+          <tr><td>Consistency at scale</td><td>Usually stronger — fewer degrees of freedom</td><td>Requires enforced conventions</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-frame" lang="pl">
+      <table class="data-table">
+        <thead><tr><th>Dla lookdevu</th><th>Silnik autorski</th><th>Silnik licencjonowany</th></tr></thead>
+        <tbody>
+          <tr><td>Dokumentacja</td><td>Koledzy i sceny testowe</td><td>Publiczne docsy, społeczność, kursy</td></tr>
+          <tr><td>Autorowanie materiałów</td><td>Dopasowane do gry; często warstwy sterowane danymi</td><td>Uniwersalny graf węzłów plus instancje</td></tr>
+          <tr><td>Referencja ground truth</td><td>Tylko jeśli ktoś ją zbudował</td><td>Zwykle wbudowany path tracer</td></tr>
+          <tr><td>Zmiana renderera</td><td>Możliwa — zespół jest właścicielem</td><td>Ograniczona do tego, co silnik wystawia</td></tr>
+          <tr><td>Przenośność umiejętności</td><td>Koncepcje się przenoszą, narzędzia nie</td><td>Przenosi się jedno i drugie</td></tr>
+          <tr><td>Spójność w skali</td><td>Zwykle większa — mniej stopni swobody</td><td>Wymaga egzekwowanych konwencji</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel practice">
+    <div class="panel-label"><span lang="en">From practice</span><span lang="pl">Z praktyki</span></div>
+    <p>
+      <span lang="en">Joining a studio with an undocumented engine, seven questions replace the missing manual, and all seven come from this book: what is the working colour space; is the tonemapper fixed and where are its settings; is there a lookdev level with calibration objects and lighting presets; where is the shared material/layer library and who owns it; what does the renderer approximate that a path tracer wouldn't; what is the project's texel density and memory budget; and what does the engine do to my material at the LOD nobody looks at. Anyone who can answer those can work in any engine, documented or not.</span>
+      <span lang="pl">Kiedy dołączasz do studia z nieudokumentowanym silnikiem, brakującą instrukcję zastępuje siedem pytań i wszystkie siedem pochodzi z tej książki: jaka jest przestrzeń robocza; czy tonemapper jest stały i gdzie są jego ustawienia; czy istnieje poziom lookdevowy z obiektami kalibracyjnymi i presetami świetlnymi; gdzie jest wspólna biblioteka materiałów/warstw i kto jest jej właścicielem; co ten renderer przybliża, czego path tracer by nie przybliżał; jaka jest gęstość tekseli i budżet pamięci w projekcie; i co silnik robi z moim materiałem na LOD-zie, na który nikt nie patrzy. Kto potrafi na nie odpowiedzieć, poradzi sobie w każdym silniku — udokumentowanym czy nie.</span>
+    </p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label"><span lang="en">Glossary</span><span lang="pl">Słowniczek</span></div>
+    <dl>
+      <dt><span lang="en">In-house engine</span><span lang="pl">Silnik autorski</span></dt>
+      <dd><span lang="en">Rendering technology built and maintained by the studio that ships games on it — fitted to those games, undocumented outside.</span><span lang="pl">Technologia renderowania budowana i utrzymywana przez studio, które wydaje na niej gry — dopasowana do nich, nieudokumentowana na zewnątrz.</span></dd>
+      <dt><span lang="en">Multilayer material setup</span><span lang="pl">Wielowarstwowy setup materiału</span></dt>
+      <dd><span lang="en">A base template plus an ordered stack of masked library layers with per-layer tint and roughness/metalness overrides, flattened before lighting.</span><span lang="pl">Szablon bazowy plus uporządkowany stos maskowanych warstw z biblioteki, z tintem i nadpisaniami roughness/metalness per warstwa, spłaszczany przed oświetleniem.</span></dd>
+      <dt><span lang="en">Layer library</span><span lang="pl">Biblioteka warstw</span></dt>
+      <dd><span lang="en">The studio-wide set of layer templates — in practice the definition of the game's material look, and a shared asset with shared-shader weight.</span><span lang="pl">Ogólnostudyjny zestaw szablonów warstw — w praktyce definicja looku materiałowego gry i wspólny asset o ciężarze współdzielonego shadera.</span></dd>
+      <dt><span lang="en">Hybrid ray tracing</span><span lang="pl">Hybrydowy ray tracing</span></dt>
+      <dd><span lang="en">A rasterised frame with selected effects (reflections, shadows, diffuse GI) ray traced — the middle fidelity tier between raster and path tracing.</span><span lang="pl">Klatka rasteryzowana z wybranymi efektami (odbicia, cienie, GI rozproszone) liczonymi ray tracingiem — środkowy poziom wierności między rasterem a path tracingiem.</span></dd>
+      <dt><span lang="en">Fidelity tier</span><span lang="pl">Poziom wierności</span></dt>
+      <dd><span lang="en">One of the several renderers a shipped game runs — the same materials must read correctly in all of them.</span><span lang="pl">Jeden z kilku rendererów, na których chodzi wydana gra — te same materiały muszą czytać się poprawnie w każdym z nich.</span></dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);"><span lang="en">What's next</span><span lang="pl">Co dalej</span></div>
+    <p>
+      <span lang="en">That closes the realtime part, and with it the technical body of the book. Chapter 29 goes back to the beginning: one scene, one asset, and every chapter — offline and realtime — applied in the order they actually happen in production.</span>
+      <span lang="pl">To zamyka część o realtime, a wraz z nią techniczny korpus książki. Rozdział 29 wraca do początku: jedna scena, jeden asset i każdy rozdział — offline i realtime — zastosowany w kolejności, w jakiej naprawdę dzieje się to na produkcji.</span>
+    </p>
+  </div>
+
+<div class="site-nav chapter-nav">
+    <a class="nav-prev" href="rozdzial-27-budzet-tekstur-i-shaderow-pod-gpu.html"><span lang="en">← Previous</span><span lang="pl">← Poprzedni</span></a>
+    <a class="nav-toc" href="../index.html"><span lang="en">Contents</span><span lang="pl">Spis treści</span></a>
+    <a class="nav-next" href="rozdzial-29-epilog.html"><span lang="en">Next →</span><span lang="pl">Następny →</span></a>
+</div>
+</div>
+<script type="module" src="../assets/i18n.js"></script>
+</body>
+</html>
