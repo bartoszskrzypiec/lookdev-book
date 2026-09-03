@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rozdział 24 — Epilog: od pustej sceny do zatwierdzonego looku</title>
+<title>Rozdział 29 — Epilog: od pustej sceny do zatwierdzonego looku</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/style.css">
@@ -13,23 +13,23 @@
   <a class="topnav__brand" href="../index.html">Lookdev <span>dla Artystów Technicznych</span></a>
   <div class="topnav__links">
     <a href="../index.html">Spis treści</a>
-    <a href="rozdzial-23-aov-debugging-arnold-vs-renderman.html">← Poprzedni</a>
+    <a href="rozdzial-28-red-engine-i-silniki-autorskie.html">← Poprzedni</a>
   </div>
 </nav>
 <div class="page">
 
   <div class="viewport-readout">
-    <span>R.1 → R.23 · jedna scena</span><span>ASSET · kurtka, suwak, szalik, dłonie</span><span>WYNIK · zatwierdzony look</span>
+    <span>R.1 → R.28 · jedna scena</span><span>ASSET · kurtka, suwak, szalik, dłonie</span><span>WYNIK · zatwierdzony look</span>
   </div>
 
-  <div class="eyebrow">Rozdział 24 / Epilog</div>
+  <div class="eyebrow">Rozdział 29 / Epilog</div>
   <h1>Epilog: od pustej sceny do zatwierdzonego looku</h1>
   <p class="subtitle">Zaczęliśmy od pytania „jak to ma wyglądać”. Kończymy na zatwierdzonym looku, przechodząc raz jeszcze przez każdy rozdział tej książki na jednej, konkretnej scenie.</p>
 
   <div class="panel">
     <div class="panel-label">TL;DR</div>
     <ul>
-      <li>Ta książka miała trzy akty: <strong>percepcja i liniowe światło</strong> (R.1–6), <strong>grading jako matematyka, nie gust</strong> (R.7–10), <strong>materiały i ocena looku w praktyce</strong> (R.11–23). Ten epilog przechodzi przez wszystkie trzy na jednej scenie, w kolejności, w jakiej naprawdę się dzieją na produkcji.</li>
+      <li>Ta książka miała cztery akty: <strong>percepcja i liniowe światło</strong> (R.1–6), <strong>grading jako matematyka, nie gust</strong> (R.7–10), <strong>materiały i ocena looku w praktyce</strong> (R.11–23) oraz <strong>ten sam warsztat w silniku czasu rzeczywistego</strong> (R.24–28). Ten epilog przechodzi przez wszystkie cztery na jednej scenie, w kolejności, w jakiej naprawdę się dzieją na produkcji.</li>
       <li>Asset testowy: postać w skórzanej kurtce z mosiężnym suwakiem, wełnianym szalikiem, i odkrytymi dłońmi/twarzą — cztery różne rodziny materiałów (dielektryk, metal, tkanina, organika) w jednej scenie, żeby żaden rozdział nie został bez zastosowania.</li>
       <li>Żaden z tych kroków nie jest opcjonalny ani wykonywany raz na zawsze — to pętla: oświetlenie zmienia to, co widać w materiale, ocena looku cofa Cię do gradingu albo do parametru shadera, a AOV mówią, gdzie dokładnie szukać, zamiast zgadywać.</li>
     </ul>
@@ -83,13 +83,21 @@
     <p>Cała ta konstrukcja jest oceniana pod konkretnym, skalibrowanym rigiem HDRI (Rozdział 21) — inny rig ze studia, inny z zachmurzonego nieba, i to, co widać, zmienia się za każdym razem, mimo że shader się nie zmienił. Turntable z Rozdziału 22 to test, który wyłapuje materiał wyglądający świetnie z jednego kąta, a rozpadający się pod innym światłem — coat na kurtce albo anizotropia na suwaku to klasyczne kandydatury do niespodzianek przy obrocie. Kiedy coś w końcu wygląda źle — powiedzmy, specular na mosiężnym suwaku jest podejrzanie za jasny — pytanie z Rozdziału 23 nie brzmi „który suwak zmienić”, tylko „w którym AOV widać winowajcę”: rozbicie na diffuse/specular/coat/SSS mówi wprost, czy problem jest w Fresnelu metalu, w oświetleniu, czy w gradingu z Aktu II, do którego być może trzeba wrócić.</p>
   </div>
 
+  <div class="section">
+    <div class="section-eyebrow">Akt IV: Ten sam asset w realtime</div>
+    <h2>Kurtka, która musi zmieścić się w 16 milisekundach</h2>
+    <p>Ten sam asset trafia teraz do silnika — i to jest moment, w którym Część VIII przestaje być teorią. Fizyka się nie zmienia: mosiądz dalej jest metalem z zespolonym Fresnelem, skóra dalej jest dielektrykiem z pigmentem pod powierzchnią, dłonie dalej potrzebują rozproszenia podpowierzchniowego. Zmienia się budżet (Rozdział 24) — cała klatka ma 16,6 ms, a stały układ G-Buffera decyduje, które z warstw z Rozdziału 15 w ogóle mogą istnieć per piksel. Coat na kurtce, sheen na szaliku i anizotropia na suwaku, które w Arnoldzie były trzema lobami jednego shadera, w klasycznej ścieżce silnika są trzema różnymi modelami cieniowania, a w Substrate — trzema slabami z własnym budżetem bajtów na piksel (Rozdział 25).</p>
+    <p>Grading z Aktu II odnajduje się w Post Process Volume, pod etykietami Saturation, Contrast, Gamma, Gain i Offset — czyli w ASC CDL z Rozdziału 8, tyle że tym razem nałożonym na gotowy produkt, bez etapu, na którym ktokolwiek mógłby go jeszcze cofnąć (Rozdział 26). Zanim jednak którakolwiek z tych liczb zacznie cokolwiek znaczyć, trzeba wyłączyć auto-ekspozycję — inaczej przyciemnienie skóry kurtki i przyciemnienie całej sceny dają po adaptacji ten sam obraz. Tekstury, które w VFX były po prostu plikami, stają się blokami 4×4 w BC5, BC7 i BC4, a mapa roughness szalika bez korekty z mapy normalnych zacznie iskrzyć, gdy tylko postać odejdzie od kamery (Rozdział 27).</p>
+    <p>I na koniec zmienia się sam moment zatwierdzenia. W Akcie III look był zatwierdzany na turntablu, pod jednym rigiem. Tutaj gracz sam prowadzi kamerę, sam wybiera porę dnia i sam gra na nieskalibrowanym telewizorze — więc zatwierdza się nie klatkę, tylko zakres: kurtkę w południe i o zmierzchu, z bliska i dwa LOD-y dalej, na najwyższym i na najniższym presecie jakości. A jeśli silnik ma path tracer albo drugi, wierniejszy tryb renderowania (Rozdziały 25 i 28), to różnica między nim a widokiem realtime jest jedyną uczciwą listą tego, co ten look w rzeczywistości przybliża.</p>
+  </div>
+
   <div class="closing">
-    <p>Dwadzieścia trzy rozdziały, jedna kurtka, jeden suwak, jeden szalik i para dłoni — i każdy z nich przeszedł przez tę samą pętlę: linear light, grading, tekstury, warstwy shadera, ocena pod światłem, poprawka, jeszcze raz. To jest cała treść lookdevu jako dyscypliny: nie jednorazowa recepta, tylko powtarzalny proces, który działa identycznie niezależnie od tego, czy materiał na ekranie to skóra, mosiądz, wełna czy szkło. Dodatki A–W czekają tam, gdzie ten epilog (i każdy rozdział przed nim) musiał zatrzymać się na wzorze i przykładzie koncepcyjnym, zamiast schodzić w pełne wyprowadzenie.</p>
+    <p>Dwadzieścia osiem rozdziałów, jedna kurtka, jeden suwak, jeden szalik i para dłoni — i każdy z nich przeszedł przez tę samą pętlę: linear light, grading, tekstury, warstwy shadera, ocena pod światłem, poprawka, jeszcze raz. To jest cała treść lookdevu jako dyscypliny: nie jednorazowa recepta, tylko powtarzalny proces, który działa identycznie niezależnie od tego, czy materiał na ekranie to skóra, mosiądz, wełna czy szkło — i, jak pokazała Część VIII, niezależnie od tego, czy renderer ma na jego policzenie dwadzieścia minut, czy szesnaście milisekund. Dodatki A–W czekają tam, gdzie ten epilog (i każdy rozdział przed nim) musiał zatrzymać się na wzorze i przykładzie koncepcyjnym, zamiast schodzić w pełne wyprowadzenie.</p>
     <div class="sign">Koniec części głównej — dalej są dodatki</div>
   </div>
 
 <div class="site-nav chapter-nav">
-    <a class="nav-prev" href="rozdzial-23-aov-debugging-arnold-vs-renderman.html">← Poprzedni</a>
+    <a class="nav-prev" href="rozdzial-28-red-engine-i-silniki-autorskie.html">← Poprzedni</a>
     <a class="nav-toc" href="../index.html">Spis treści</a>
     
 </div>

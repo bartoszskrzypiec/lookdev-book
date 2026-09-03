@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en" data-i18n-storage="ldb-lang" data-i18n-default="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-title-en="Chapter 26 — Colour and tone mapping in realtime" data-title-pl="Rozdział 26 — Kolor i tone mapping w realtime">Chapter 26 — Colour and tone mapping in realtime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/widgets.css">
+<script>
+(function () {
+  var d = document.documentElement, l = null;
+  var storeKey = d.dataset.i18nStorage || 'i18n-lang';
+  var fallback = d.dataset.i18nDefault === 'pl' ? 'pl' : 'en';
+  try { l = new URLSearchParams(location.search).get('lang') || localStorage.getItem(storeKey); } catch (e) {}
+  if (l !== 'en' && l !== 'pl') l = (navigator.language || '').toLowerCase().indexOf('pl') === 0 ? 'pl' : fallback;
+  d.setAttribute('data-lang', l); d.lang = l; d.classList.add('js');
+})();
+</script>
+</head>
+<body>
+<nav class="topnav topnav--i18n">
+  <a class="topnav__brand" href="../index.html">Lookdev <span>dla Artystów Technicznych</span></a>
+  <div class="topnav__links">
+    <a href="../index.html"><span lang="en">Contents</span><span lang="pl">Spis treści</span></a>
+    <a href="rozdzial-25-unreal-engine-5-w-praktyce.html"><span lang="en">← Previous</span><span lang="pl">← Poprzedni</span></a>
+    <a href="rozdzial-27-budzet-tekstur-i-shaderow-pod-gpu.html"><span lang="en">Next →</span><span lang="pl">Następny →</span></a>
+  </div>
+  <div class="lang-switch" role="group" aria-label="Language / Język">
+    <button type="button" data-set-lang="en" class="is-active" aria-pressed="true">EN</button>
+    <button type="button" data-set-lang="pl" aria-pressed="false">PL</button>
+  </div>
+</nav>
+<div class="page">
+
+  <div class="viewport-readout">
+    <span><span lang="en">GRADE · SOP + Sat, new labels</span><span lang="pl">GRADING · SOP + Sat, nowe etykiety</span></span><span><span lang="en">TONEMAP · shipped, not previewed</span><span lang="pl">TONEMAP · wysyłany, nie podglądany</span></span><span><span lang="en">DISPLAY · uncalibrated by definition</span><span lang="pl">EKRAN · z definicji nieskalibrowany</span></span>
+  </div>
+
+  <div class="eyebrow"><span lang="en">Chapter 26 / Realtime lookdev</span><span lang="pl">Rozdział 26 / Lookdev realtime</span></div>
+  <h1><span lang="en">Colour and tone mapping in realtime</span><span lang="pl">Kolor i tone mapping w realtime</span></h1>
+  <p class="subtitle">
+    <span lang="en">In VFX the display transform is a viewer setting you can switch off. In a game it is part of the product — and the player's screen, unlike the grading suite's, was never calibrated by anyone.</span>
+    <span lang="pl">W VFX transformacja wyświetlania jest ustawieniem viewera, które można wyłączyć. W grze jest częścią produktu — a ekranu gracza, w odróżnieniu od monitora w gradingu, nikt nigdy nie skalibrował.</span>
+  </p>
+
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>
+        <span lang="en">The engine's colour pipeline has the same shape as the one in Chapter 6: <span class="term-amber">scene-linear working space → exposure → grade → tonemap → output transform</span>. What changes is authority — the tonemapper ships with the game, so every look decision is made <em>through</em> it, and there is no "look at the raw linear render" state that anyone downstream will ever see.</span>
+        <span lang="pl">Pipeline kolorystyczny silnika ma ten sam kształt co ten z Rozdziału 6: <span class="term-amber">liniowa przestrzeń robocza → ekspozycja → grading → tonemapping → transformacja wyjściowa</span>. Zmienia się władza — tonemapper jedzie razem z grą, więc każda decyzja o looku zapada <em>przez niego</em>, i nie istnieje stan „popatrz na surowy render liniowy", który zobaczyłby ktokolwiek dalej w łańcuchu.</span>
+      </li>
+      <li>
+        <span lang="en">Unreal's Post Process colour grading is <span class="term-cyan">ASC CDL plus saturation</span> under different labels: Saturation, Contrast, Gamma, Gain, Offset, each available globally and per tonal range (shadows / midtones / highlights) with adjustable crossovers. Everything Chapters 7–10 derived applies unchanged — including the warning that gain and offset are not interchangeable ways of "making it brighter".</span>
+        <span lang="pl">Color grading w Post Process w Unrealu to <span class="term-cyan">ASC CDL plus saturacja</span> pod innymi etykietami: Saturation, Contrast, Gamma, Gain, Offset — każdy dostępny globalnie i per zakres tonalny (cienie / średnie tony / światła) z regulowanymi punktami przejścia. Wszystko, co wyprowadziły Rozdziały 7–10, obowiązuje bez zmian — łącznie z ostrzeżeniem, że gain i offset to nie dwa wymienne sposoby na „rozjaśnienie".</span>
+      </li>
+      <li>
+        <span lang="en">Two things have no VFX equivalent and both must be handled before judging any material: <span class="term-violet">auto-exposure</span>, which moves the ground under a look while you evaluate it, and the <strong>uncalibrated display</strong>, which is why games ship their own brightness/contrast calibration screens instead of assuming the viewing environment of Appendix I.</span>
+        <span lang="pl">Dwie rzeczy nie mają odpowiednika w VFX i obie trzeba załatwić przed oceną jakiegokolwiek materiału: <span class="term-violet">auto-ekspozycja</span>, która przesuwa grunt pod lookiem w trakcie oceniania, oraz <strong>nieskalibrowany ekran</strong> — powód, dla którego gry mają własne ekrany kalibracji jasności i kontrastu zamiast zakładać warunki oglądania z Dodatku I.</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: Working space</span><span lang="pl">Etap: Przestrzeń robocza</span></div>
+    <h2><span lang="en">What the engine actually computes in</span><span lang="pl">W czym silnik naprawdę liczy</span></h2>
+    <p>
+      <span lang="en">Historically Unreal shaded in scene-linear sRGB/Rec.709 primaries — the same linear-light principle as Chapter 3, but with the narrower gamut of Chapter 4 rather than ACEScg. Newer versions expose a project-level <strong>working colour space</strong> setting, ACEScg included, which changes the primaries every shading computation happens in. This is not a cosmetic switch: it changes how saturated lights and saturated albedos multiply together, exactly as Chapter 4 predicted, and it interacts with every texture already authored under the old assumption.</span>
+      <span lang="pl">Historycznie Unreal cieniował w liniowej przestrzeni o prymariach sRGB/Rec.709 — ta sama zasada liniowego światła co w Rozdziale 3, ale z węższym gamutem z Rozdziału 4 zamiast ACEScg. Nowsze wersje wystawiają ustawienie <strong>przestrzeni roboczej</strong> na poziomie projektu, z ACEScg włącznie, które zmienia prymaria, w jakich odbywa się każde liczenie cieniowania. To nie jest przełącznik kosmetyczny: zmienia sposób, w jaki mnożą się nasycone światła z nasyconym albedo — dokładnie jak przewidywał Rozdział 4 — i wchodzi w interakcję z każdą teksturą zautorowaną pod starym założeniem.</span>
+    </p>
+    <p>
+      <span lang="en">The practical rule is the same as in a VFX show: the working space is a project decision made once, at the start, by whoever owns colour — not a per-artist preference. What each texture <em>means</em> is still Chapter 11's colour-versus-data question, and in Unreal it is answered by one checkbox on the texture asset (sRGB) plus the compression setting, which is why a normal map or a roughness mask with sRGB left on is the single most common colour bug in an engine project.</span>
+      <span lang="pl">Praktyczna zasada jest ta sama co na produkcji VFX: przestrzeń robocza to decyzja projektowa podejmowana raz, na starcie, przez osobę odpowiedzialną za kolor — nie preferencja pojedynczego artysty. To, co <em>znaczy</em> każda tekstura, wciąż jest pytaniem kolor kontra dane z Rozdziału 11, a w Unrealu odpowiada na nie jeden przełącznik na asecie tekstury (sRGB) plus ustawienie kompresji — i dlatego normalna albo maska roughness z zostawionym sRGB to najczęstszy błąd kolorystyczny w projekcie silnikowym.</span>
+    </p>
+  </div>
+
+  <div class="diagram-frame">
+    <div class="diagram-hud"><span>Realtime.color.chain</span><span><span lang="en">where each control sits between shading and the screen</span><span lang="pl">gdzie siedzi każda kontrolka między cieniowaniem a ekranem</span></span></div>
+    <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg">
+      <g font-family="IBM Plex Mono" font-size="10">
+        <rect x="20" y="60" width="110" height="48" fill="none" stroke="#6e93be" stroke-width="1.5"/>
+        <text x="75" y="82" text-anchor="middle" fill="#6e93be"><tspan lang="en">scene-linear</tspan><tspan lang="pl">scena liniowa</tspan></text>
+        <text x="75" y="96" text-anchor="middle" fill="#8b909b">HDR</text>
+
+        <rect x="152" y="60" width="104" height="48" fill="none" stroke="#4fc3c0" stroke-width="1.5"/>
+        <text x="204" y="82" text-anchor="middle" fill="#4fc3c0"><tspan lang="en">exposure</tspan><tspan lang="pl">ekspozycja</tspan></text>
+        <text x="204" y="96" text-anchor="middle" fill="#8b909b">EV100</text>
+
+        <rect x="278" y="60" width="124" height="48" fill="none" stroke="#e8a33d" stroke-width="1.5"/>
+        <text x="340" y="82" text-anchor="middle" fill="#e8a33d"><tspan lang="en">grade</tspan><tspan lang="pl">grading</tspan></text>
+        <text x="340" y="96" text-anchor="middle" fill="#8b909b">SOP + Sat</text>
+
+        <rect x="424" y="60" width="124" height="48" fill="none" stroke="#a98cd8" stroke-width="1.5"/>
+        <text x="486" y="82" text-anchor="middle" fill="#a98cd8"><tspan lang="en">tonemapper</tspan><tspan lang="pl">tonemapper</tspan></text>
+        <text x="486" y="96" text-anchor="middle" fill="#8b909b"><tspan lang="en">filmic curve</tspan><tspan lang="pl">krzywa filmowa</tspan></text>
+
+        <rect x="570" y="60" width="170" height="48" fill="none" stroke="#8b909b" stroke-width="1.5"/>
+        <text x="655" y="82" text-anchor="middle" fill="#c8ccd4"><tspan lang="en">output transform</tspan><tspan lang="pl">transformacja wyjścia</tspan></text>
+        <text x="655" y="96" text-anchor="middle" fill="#8b909b">sRGB · Rec.709 · PQ</text>
+
+        <g stroke="#8b909b" stroke-width="1.2" fill="none">
+          <path d="M 130,84 L 150,84"/><path d="M 256,84 L 276,84"/><path d="M 402,84 L 422,84"/><path d="M 548,84 L 568,84"/>
+        </g>
+
+        <text x="20" y="140" fill="#8b909b"><tspan lang="en">VFX: everything left of the tonemapper is what you deliver; the transform is a viewer setting.</tspan><tspan lang="pl">VFX: wszystko na lewo od tonemappera to Twój deliverable; transformacja jest ustawieniem viewera.</tspan></text>
+        <text x="20" y="158" fill="#e8a33d"><tspan lang="en">Game: the whole chain ships. The player sees the right-hand end and nothing else.</tspan><tspan lang="pl">Gra: cały łańcuch jedzie do gracza. Gracz widzi prawy koniec i nic poza nim.</tspan></text>
+        <text x="20" y="184" fill="#a98cd8"><tspan lang="en">Auto-exposure moves the second box while you are judging the third.</tspan><tspan lang="pl">Auto-ekspozycja rusza drugim pudełkiem, kiedy oceniasz trzecie.</tspan></text>
+      </g>
+    </svg>
+    <div class="diagram-caption"><span lang="en">The same chain as Chapter 6, with one difference that decides everything else: in a game there is no downstream stage that could undo a decision made here.</span><span lang="pl">Ten sam łańcuch co w Rozdziale 6, z jedną różnicą, która decyduje o całej reszcie: w grze nie ma dalszego etapu, który mógłby cofnąć podjętą tu decyzję.</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: Exposure</span><span lang="pl">Etap: Ekspozycja</span></div>
+    <h2><span lang="en">Pin it before you judge anything</span><span lang="pl">Przybij ją, zanim cokolwiek ocenisz</span></h2>
+    <p>
+      <span lang="en">Engines express exposure in EV100, the same photographic unit as Chapter 9's stops, tied to a luminance the camera maps to middle grey:</span>
+      <span lang="pl">Silniki wyrażają ekspozycję w EV100 — tej samej jednostce fotograficznej co stopy z Rozdziału 9 — powiązanej z luminancją, którą kamera odwzorowuje na średnią szarość:</span>
+    </p>
+    <div class="formula">L ≈ 0,125 · 2^EV100<span class="sub"><span lang="en">L — the scene luminance in cd/m² that lands on middle grey; EV100 — exposure value at ISO 100. One EV is one stop, exactly as in Chapter 9 — the label changed, the maths didn't.</span><span lang="pl">L — luminancja sceny w cd/m², która trafia na średnią szarość; EV100 — wartość ekspozycji przy ISO 100. Jeden EV to jeden stop, dokładnie jak w Rozdziale 9 — zmieniła się etykieta, nie matematyka.</span></span></div>
+    <p>
+      <span lang="en">By default the engine drives that value automatically from the histogram of what is on screen — eye adaptation. For gameplay this is desirable; for lookdev it is fatal, because darkening the material and darkening the scene produce the same picture after adaptation, so the one thing you are trying to evaluate is exactly the thing the system compensates away. In a lookdev level, set the exposure method to manual, or clamp the minimum and maximum EV100 to the same number, and note that value in the scene: a look approved at a fixed EV is reproducible, a look approved under adaptation is not.</span>
+      <span lang="pl">Domyślnie silnik prowadzi tę wartość automatycznie, z histogramu tego, co jest na ekranie — to adaptacja wzroku. W rozgrywce jest pożądana; w lookdevie jest zabójcza, bo przyciemnienie materiału i przyciemnienie sceny dają po adaptacji ten sam obraz, więc jedyna rzecz, którą próbujesz ocenić, jest dokładnie tą, którą system kompensuje. W poziomie lookdevowym ustaw metodę ekspozycji na ręczną albo zaciśnij minimum i maksimum EV100 na tej samej liczbie i zanotuj ją w scenie: look zatwierdzony przy stałym EV jest odtwarzalny, look zatwierdzony pod adaptacją — nie.</span>
+    </p>
+    <p>
+      <span lang="en">The same discipline applies to lights. Engines that use physical light units (lumen, candela, lux, nits) let a lighting setup be described in the same numbers as the HDRI rig of Chapter 21 — and a rig described in physical units survives being rebuilt, while one tuned by dragging an intensity slider until it looked right does not.</span>
+      <span lang="pl">Ta sama dyscyplina dotyczy świateł. Silniki używające fizycznych jednostek światła (lumen, kandela, luks, nit) pozwalają opisać setup oświetleniowy tymi samymi liczbami co rig HDRI z Rozdziału 21 — a rig opisany w jednostkach fizycznych przeżyje przebudowę, podczas gdy taki dostrojony ciągnięciem suwaka intensywności aż „zaczęło wyglądać" — nie.</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: The grade</span><span lang="pl">Etap: Grading</span></div>
+    <h2><span lang="en">ASC CDL wearing a Post Process Volume</span><span lang="pl">ASC CDL przebrany za Post Process Volume</span></h2>
+    <p>
+      <span lang="en">Unreal's colour grading section exposes Saturation, Contrast, Gamma, Gain and Offset — four of which are literally the operators of Chapters 7 and 8. The ASC CDL of Chapter 8 is:</span>
+      <span lang="pl">Sekcja color gradingu w Unrealu wystawia Saturation, Contrast, Gamma, Gain i Offset — cztery z nich to dosłownie operatory z Rozdziałów 7 i 8. ASC CDL z Rozdziału 8 to:</span>
+    </p>
+    <div class="formula">out = (in × slope + offset)^power<span class="sub"><span lang="en">slope ↔ Gain (a multiply, pivoting on black), offset ↔ Offset (an add, shifting the whole range), power ↔ Gamma (an exponent, bending the middle). Saturation is the Chapter 10 operator applied on top.</span><span lang="pl">slope ↔ Gain (mnożenie obracające wokół czerni), offset ↔ Offset (dodawanie przesuwające cały zakres), power ↔ Gamma (wykładnik zaginający środek). Saturation to operator z Rozdziału 10 nałożony na wierzch.</span></span></div>
+    <p>
+      <span lang="en">Two differences from a Nuke grade are worth internalising. First, every control exists four times — global, shadows, midtones, highlights — with adjustable crossover points, which is closer to a colourist's primary wheels than to a single Grade node; the same value entered in "global" and in "midtones" does not produce the same image. Second, and more important: this grade is applied to the game, permanently, for everyone. A grade that fixes a material's albedo being too dark fixes it in every scene that volume touches, and the material is still wrong. The rule from Chapter 7 — grading corrects how you look at the scene, not what the material is made of — is not weakened in an engine, it is enforced by the fact that nobody downstream will ever separate the two again.</span>
+      <span lang="pl">Dwie różnice względem grade'a w Nuke warto sobie przyswoić. Po pierwsze, każda kontrolka istnieje cztery razy — globalnie, cienie, średnie tony, światła — z regulowanymi punktami przejścia, co jest bliżej kół primary kolorysty niż pojedynczemu węzłowi Grade; ta sama wartość wpisana w „global" i w „midtones" nie daje tego samego obrazu. Po drugie, i ważniejsze: ten grading nakłada się na grę, na stałe, dla wszystkich. Grading naprawiający zbyt ciemne albedo materiału naprawia je w każdej scenie, której dotyka ten volume, a materiał dalej jest zły. Zasada z Rozdziału 7 — grading poprawia to, jak patrzysz na scenę, a nie to, z czego zrobiony jest materiał — nie słabnie w silniku; wymusza ją fakt, że nikt dalej w łańcuchu już nigdy tych dwóch rzeczy nie rozdzieli.</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: The tonemapper</span><span lang="pl">Etap: Tonemapper</span></div>
+    <h2><span lang="en">A filmic curve you can shape but not remove</span><span lang="pl">Krzywa filmowa, którą można kształtować, ale nie usunąć</span></h2>
+    <p>
+      <span lang="en">Unreal's default tonemapper is a filmic S-curve derived from ACES — an approximation of the RRT/ODT pair described in raytracing-book's ACES series, fast enough to run every frame. It is exposed as film-curve parameters (slope, toe, shoulder, black clip, white clip) plus a gamut-expansion control that decides how far very saturated, very bright values are allowed to travel before the curve desaturates them.</span>
+      <span lang="pl">Domyślny tonemapper Unreala to filmowa krzywa S wyprowadzona z ACES — przybliżenie pary RRT/ODT opisanej w serii ACES w raytracing-book, na tyle szybkie, żeby liczyć je co klatkę. Wystawiony jest jako parametry krzywej filmowej (slope, toe, shoulder, black clip, white clip) plus kontrolka rozszerzania gamutu decydująca, jak daleko mogą zawędrować bardzo nasycone, bardzo jasne wartości, zanim krzywa je odsyci.</span>
+    </p>
+    <p>
+      <span lang="en">For lookdev the consequence is the one from Chapter 6, sharpened: your material's specular highlight will be compressed by the shoulder and desaturated on its way to white, and that behaviour is part of the deliverable. Judging a highlight "too hot" or a saturated fabric "too electric" only means something with the shipping curve applied — which is also why changing the tonemapper's parameters late in a project silently re-grades every material anyone already approved.</span>
+      <span lang="pl">Dla lookdevu konsekwencja jest ta z Rozdziału 6, tylko wyostrzona: rozbłysk specularu Twojego materiału zostanie skompresowany przez ramię krzywej i odsycony w drodze do bieli, a to zachowanie jest częścią deliverable'u. Ocena „za gorący" rozbłysk albo „zbyt elektryczna" nasycona tkanina znaczy cokolwiek tylko z nałożoną docelową krzywą — i dlatego zmiana parametrów tonemappera późno w projekcie po cichu przegradowuje każdy materiał, który ktoś już zatwierdził.</span>
+    </p>
+    <p>
+      <span lang="en">Where a project needs the VFX chain rather than the game one — virtual production, an in-engine cinematic delivered to an editorial pipeline — Unreal's OpenColorIO plugin applies a real OCIO configuration to the viewport and to rendered output, which is the same config architecture pipeline-book covers from the engineering side. Note the asymmetry: in a shipped game OCIO is an authoring aid that never reaches the player, while in virtual production it is the whole chain and must match the show's config exactly.</span>
+      <span lang="pl">Tam, gdzie projekt potrzebuje łańcucha z VFX, a nie z gry — wirtualna produkcja, cinematic renderowany w silniku i oddawany do montażu — wtyczka OpenColorIO w Unrealu nakłada prawdziwy config OCIO na viewport i na render wyjściowy; to ta sama architektura configów, którą pipeline-book opisuje od strony inżynierskiej. Zwróć uwagę na asymetrię: w wysyłanej grze OCIO jest pomocą autorską, która nigdy nie dociera do gracza, a w wirtualnej produkcji jest całym łańcuchem i musi dokładnie zgadzać się z configiem showu.</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: The player's screen</span><span lang="pl">Etap: Ekran gracza</span></div>
+    <h2><span lang="en">The one assumption you have to give up</span><span lang="pl">Jedyne założenie, z którego trzeba zrezygnować</span></h2>
+    <p>
+      <span lang="en">Appendix I built the calibrated viewing environment a look is approved in: a profiled display, a known white point, controlled surround. A game has none of that. It runs on an uncalibrated TV in a bright room, in a "vivid" picture mode nobody turned off, on a phone-sized handheld, and — if it supports HDR — through a display transform to PQ whose peak brightness varies by an order of magnitude between devices.</span>
+      <span lang="pl">Dodatek I zbudował skalibrowane środowisko oglądania, w którym zatwierdza się look: sprofilowany monitor, znany punkt bieli, kontrolowane otoczenie. Gra nie ma nic z tego. Chodzi na nieskalibrowanym telewizorze w jasnym pokoju, w trybie „vivid", którego nikt nie wyłączył, na przenośnej konsoli wielkości telefonu, a jeśli wspiera HDR — przez transformację do PQ, której szczytowa jasność różni się między urządzeniami o rząd wielkości.</span>
+    </p>
+    <p>
+      <span lang="en">This is why games ship calibration screens ("raise the slider until the logo is barely visible"), and why realtime lookdev protects the look with margin instead of precision: don't put storytelling information in the bottom two per cent of the range, don't rely on a highlight separation of a tenth of a stop, and check the asset once on a deliberately badly-set display. The offline habit of trusting the reference monitor has no realtime equivalent — the reference monitor is still how you author, but it stops being how the work is seen.</span>
+      <span lang="pl">Dlatego gry mają ekrany kalibracyjne („podnoś suwak, aż logo będzie ledwo widoczne") i dlatego lookdev realtime chroni look zapasem, a nie precyzją: nie umieszczaj informacji fabularnej w dolnych dwóch procentach zakresu, nie opieraj się na separacji rozbłysków rzędu jednej dziesiątej stopa i sprawdź asset raz na celowo źle ustawionym ekranie. Nawyk offline'owego ufania monitorowi referencyjnemu nie ma odpowiednika w realtime — monitor referencyjny wciąż jest tym, na czym autorujesz, ale przestaje być tym, na czym praca jest oglądana.</span>
+    </p>
+  </div>
+
+  <div class="panel practice">
+    <div class="panel-label"><span lang="en">From practice</span><span lang="pl">Z praktyki</span></div>
+    <p>
+      <span lang="en">A lookdev level's colour setup is worth writing down as a checklist and re-checking whenever a shot looks wrong: exposure manual and pinned, auto-exposure off, colour grading neutral in the volume you are working in (a grade left in from someone else's test is the classic ghost bug), tonemapper at the project's shipping settings — never at a "neutral" or bypassed state — and lights in physical units. Only then does a difference between two materials mean a difference between two materials.</span>
+      <span lang="pl">Ustawienia kolorystyczne poziomu lookdevowego warto spisać jako checklistę i sprawdzać ją, ilekroć ujęcie wygląda źle: ekspozycja ręczna i przybita, auto-ekspozycja wyłączona, color grading neutralny w volume, w którym pracujesz (zostawiony grading z czyjegoś testu to klasyczny błąd-duch), tonemapper w docelowych ustawieniach projektu — nigdy w stanie „neutralnym" ani obejściu — i światła w jednostkach fizycznych. Dopiero wtedy różnica między dwoma materiałami oznacza różnicę między dwoma materiałami.</span>
+    </p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label"><span lang="en">Glossary</span><span lang="pl">Słowniczek</span></div>
+    <dl>
+      <dt><span lang="en">Working colour space (engine)</span><span lang="pl">Przestrzeń robocza (silnik)</span></dt>
+      <dd><span lang="en">The primaries every shading computation happens in — historically sRGB/Rec.709, configurable to ACEScg in newer Unreal versions.</span><span lang="pl">Prymaria, w jakich odbywa się każde liczenie cieniowania — historycznie sRGB/Rec.709, w nowszych wersjach Unreala konfigurowalne na ACEScg.</span></dd>
+      <dt><span lang="en">EV100</span><span lang="pl">EV100</span></dt>
+      <dd><span lang="en">Exposure value at ISO 100; one EV is one stop. The engine's exposure unit, manual or histogram-driven.</span><span lang="pl">Wartość ekspozycji przy ISO 100; jeden EV to jeden stop. Jednostka ekspozycji w silniku, ręczna albo prowadzona histogramem.</span></dd>
+      <dt><span lang="en">Eye adaptation / auto-exposure</span><span lang="pl">Adaptacja wzroku / auto-ekspozycja</span></dt>
+      <dd><span lang="en">Automatic exposure driven by on-screen content — desirable in gameplay, disqualifying during material evaluation.</span><span lang="pl">Automatyczna ekspozycja prowadzona zawartością ekranu — pożądana w rozgrywce, dyskwalifikująca przy ocenie materiału.</span></dd>
+      <dt><span lang="en">Filmic tonemapper</span><span lang="pl">Tonemapper filmowy</span></dt>
+      <dd><span lang="en">The shipped S-curve (ACES-derived in Unreal) mapping scene-linear HDR to display range, shaped by toe/shoulder/clip parameters.</span><span lang="pl">Docelowa krzywa S (w Unrealu wyprowadzona z ACES) odwzorowująca liniowy HDR sceny na zakres ekranu, kształtowana parametrami toe/shoulder/clip.</span></dd>
+      <dt><span lang="en">Post Process Volume</span><span lang="pl">Post Process Volume</span></dt>
+      <dd><span lang="en">The engine object carrying exposure, grading and tonemapper settings for a region of the level — grading here ships with the game.</span><span lang="pl">Obiekt silnika niosący ustawienia ekspozycji, gradingu i tonemappera dla obszaru poziomu — grading z niego jedzie razem z grą.</span></dd>
+      <dt><span lang="en">Calibration screen</span><span lang="pl">Ekran kalibracyjny</span></dt>
+      <dd><span lang="en">The in-game brightness/contrast setup that substitutes for the calibrated viewing environment a VFX look is approved in.</span><span lang="pl">Wewnątrzgrowe ustawianie jasności i kontrastu, zastępujące skalibrowane środowisko oglądania, w którym zatwierdza się look w VFX.</span></dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);"><span lang="en">What's next</span><span lang="pl">Co dalej</span></div>
+    <p>
+      <span lang="en">Colour handled, the remaining realtime constraint is memory and instructions. Chapter 27 goes into the texture and shader budget: what block compression does to a mask that looked clean in Photoshop, why mip levels make a rough surface sparkle, and how channel packing turns Chapter 11's colour-versus-data rule into a file-format decision.</span>
+      <span lang="pl">Kolor załatwiony, więc zostaje ograniczenie pamięci i instrukcji. Rozdział 27 wchodzi w budżet tekstur i shaderów: co kompresja blokowa robi masce, która w Photoshopie wyglądała czysto, dlaczego poziomy mip sprawiają, że szorstka powierzchnia zaczyna iskrzyć, i jak channel packing zamienia zasadę kolor kontra dane z Rozdziału 11 w decyzję o formacie pliku.</span>
+    </p>
+  </div>
+
+<div class="site-nav chapter-nav">
+    <a class="nav-prev" href="rozdzial-25-unreal-engine-5-w-praktyce.html"><span lang="en">← Previous</span><span lang="pl">← Poprzedni</span></a>
+    <a class="nav-toc" href="../index.html"><span lang="en">Contents</span><span lang="pl">Spis treści</span></a>
+    <a class="nav-next" href="rozdzial-27-budzet-tekstur-i-shaderow-pod-gpu.html"><span lang="en">Next →</span><span lang="pl">Następny →</span></a>
+</div>
+</div>
+<script type="module" src="../assets/i18n.js"></script>
+</body>
+</html>

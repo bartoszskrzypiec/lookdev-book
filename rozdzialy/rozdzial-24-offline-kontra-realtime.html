@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en" data-i18n-storage="ldb-lang" data-i18n-default="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-title-en="Chapter 24 — Offline vs Realtime" data-title-pl="Rozdział 24 — Offline kontra realtime">Chapter 24 — Offline vs Realtime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="../assets/widgets.css">
+<script>
+(function () {
+  var d = document.documentElement, l = null;
+  var storeKey = d.dataset.i18nStorage || 'i18n-lang';
+  var fallback = d.dataset.i18nDefault === 'pl' ? 'pl' : 'en';
+  try { l = new URLSearchParams(location.search).get('lang') || localStorage.getItem(storeKey); } catch (e) {}
+  if (l !== 'en' && l !== 'pl') l = (navigator.language || '').toLowerCase().indexOf('pl') === 0 ? 'pl' : fallback;
+  d.setAttribute('data-lang', l); d.lang = l; d.classList.add('js');
+})();
+</script>
+</head>
+<body>
+<nav class="topnav topnav--i18n">
+  <a class="topnav__brand" href="../index.html">Lookdev <span>dla Artystów Technicznych</span></a>
+  <div class="topnav__links">
+    <a href="../index.html"><span lang="en">Contents</span><span lang="pl">Spis treści</span></a>
+    <a href="rozdzial-23-aov-debugging-arnold-vs-renderman.html"><span lang="en">← Previous</span><span lang="pl">← Poprzedni</span></a>
+    <a href="rozdzial-25-unreal-engine-5-w-praktyce.html"><span lang="en">Next →</span><span lang="pl">Następny →</span></a>
+  </div>
+  <div class="lang-switch" role="group" aria-label="Language / Język">
+    <button type="button" data-set-lang="en" class="is-active" aria-pressed="true">EN</button>
+    <button type="button" data-set-lang="pl" aria-pressed="false">PL</button>
+  </div>
+</nav>
+<div class="page">
+
+  <div class="viewport-readout">
+    <span><span lang="en">OFFLINE · minutes per frame</span><span lang="pl">OFFLINE · minuty na klatkę</span></span><span><span lang="en">REALTIME · 16,6 ms per frame</span><span lang="pl">REALTIME · 16,6 ms na klatkę</span></span><span><span lang="en">CONSTANT · the physics</span><span lang="pl">STAŁE · fizyka</span></span>
+  </div>
+
+  <div class="eyebrow"><span lang="en">Chapter 24 / Realtime lookdev</span><span lang="pl">Rozdział 24 / Lookdev realtime</span></div>
+  <h1><span lang="en">Offline vs Realtime: what actually changes</span><span lang="pl">Offline kontra realtime: co naprawdę się zmienia</span></h1>
+  <p class="subtitle">
+    <span lang="en">The BRDF you spent twenty-three chapters on doesn't change when the renderer has 16 milliseconds instead of twenty minutes. Almost everything around it does.</span>
+    <span lang="pl">BRDF, któremu poświęciliśmy dwadzieścia trzy rozdziały, nie zmienia się, kiedy renderer dostaje 16 milisekund zamiast dwudziestu minut. Prawie wszystko dookoła niego — tak.</span>
+  </p>
+
+  <div class="panel">
+    <div class="panel-label">TL;DR</div>
+    <ul>
+      <li>
+        <span lang="en"><span class="term-amber">The physics is the same.</span> Metal/roughness, linear light, Fresnel, energy conservation, colour-versus-data textures — a game engine and Arnold agree on every one of these. What differs is the <span class="term-cyan">budget</span>: a 60 fps frame has 16,6 ms for the entire image, lighting and post included, while a single Arnold AOV pass can take minutes.</span>
+        <span lang="pl"><span class="term-amber">Fizyka jest ta sama.</span> Metal/roughness, liniowe światło, Fresnel, zachowanie energii, kolor kontra dane w teksturach — silnik gry i Arnold zgadzają się w każdym z tych punktów. Różni je <span class="term-cyan">budżet</span>: klatka przy 60 fps ma 16,6 ms na cały obraz razem z oświetleniem i postprodukcją, podczas gdy pojedynczy przebieg AOV w Arnoldzie potrafi trwać minuty.</span>
+      </li>
+      <li>
+        <span lang="en">In a deferred renderer, the <span class="term-violet">G-Buffer</span> decides which material parameters may exist at all. Arnold lets you stack closures until the shader graph stops fitting on screen; a deferred engine has a fixed number of channels per pixel, and anything that doesn't fit into them simply cannot be a per-pixel material property.</span>
+        <span lang="pl">W rendererze deferred to <span class="term-violet">G-Buffer</span> decyduje, jakie parametry materiału w ogóle mogą istnieć. Arnold pozwala układać closure'y, aż graf shadera przestaje mieścić się na ekranie; silnik deferred ma stałą liczbę kanałów na piksel, a to, co się w nich nie mieści, po prostu nie może być właściwością materiału liczoną per piksel.</span>
+      </li>
+      <li>
+        <span lang="en">The deepest change isn't technical. In VFX you approve a look on a shot — a fixed camera, fixed lighting, a hero frame. In a game the player owns the camera and often the time of day, so a look has to hold across a <em>range</em> of conditions. That single fact reshapes the whole review loop of Chapter 22.</span>
+        <span lang="pl">Najgłębsza zmiana nie jest techniczna. W VFX zatwierdzasz look na ujęciu — ustalona kamera, ustalone światło, jedna klatka bohaterska. W grze kamerą, a często i porą dnia, steruje gracz, więc look musi się bronić w całym <em>zakresie</em> warunków. Ten jeden fakt przebudowuje całą pętlę review z Rozdziału 22.</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: The budget</span><span lang="pl">Etap: Budżet</span></div>
+    <h2><span lang="en">Sixteen milliseconds, everything included</span><span lang="pl">Szesnaście milisekund na wszystko</span></h2>
+    <p>
+      <span lang="en">The frame budget follows straight from the target frame rate, and it is the number every other decision in this part of the book bends around:</span>
+      <span lang="pl">Budżet klatki wynika wprost z docelowej liczby klatek na sekundę i to on jest liczbą, wokół której zagina się każda inna decyzja w tej części książki:</span>
+    </p>
+    <div class="formula">t_klatki = 1000 ms / fps → 60 fps ≈ 16,6 ms · 30 fps ≈ 33,3 ms<span class="sub"><span lang="en">t_klatki — the total time for one frame: geometry, shadows, global illumination, reflections, transparency, post-processing and the UI. Not a per-shader budget — a budget for the whole image.</span><span lang="pl">t_klatki — całkowity czas na jedną klatkę: geometria, cienie, oświetlenie globalne, odbicia, transparencja, postprodukcja i interfejs. To nie budżet na shader — to budżet na cały obraz.</span></span></div>
+    <p>
+      <span lang="en">A production Arnold frame at 3–4k samples per pixel spends somewhere between several minutes and several hours on exactly the same work. The ratio is roughly five to six orders of magnitude, and it is not closed by a faster GPU — it is closed by <strong>approximation</strong>: fewer rays, reused results between frames, screen-space substitutes for world-space effects, and material models that stop before the last few percent of accuracy.</span>
+      <span lang="pl">Produkcyjna klatka w Arnoldzie przy 3–4 tysiącach próbek na piksel zajmuje na dokładnie tej samej robocie od kilku minut do kilku godzin. Stosunek to mniej więcej pięć–sześć rzędów wielkości i nie domyka go szybszy GPU — domyka go <strong>przybliżenie</strong>: mniej promieni, wyniki używane ponownie między klatkami, ekranowe substytuty efektów liczonych w przestrzeni świata i modele materiałów, które zatrzymują się przed ostatnimi kilkoma procentami dokładności.</span>
+    </p>
+  </div>
+
+  <div class="diagram-frame">
+    <div class="diagram-hud"><span>Frame.budget</span><span><span lang="en">one realtime frame, 16,6 ms, split by pass</span><span lang="pl">jedna klatka realtime, 16,6 ms, w podziale na przebiegi</span></span></div>
+    <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+      <text x="60" y="34" font-family="IBM Plex Mono" font-size="11" fill="#8b909b">OFFLINE</text>
+      <rect x="60" y="44" width="640" height="26" fill="#6e93be" opacity="0.35" stroke="#6e93be"/>
+      <text x="380" y="61" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#c8ccd4"><tspan lang="en">one Arnold frame — minutes to hours, one pass, no reuse</tspan><tspan lang="pl">jedna klatka Arnolda — minuty do godzin, jeden przebieg, bez recyklingu</tspan></text>
+
+      <text x="60" y="110" font-family="IBM Plex Mono" font-size="11" fill="#8b909b">REALTIME · 16,6 ms</text>
+      <rect x="60" y="120" width="128" height="26" fill="#4fc3c0" opacity="0.35" stroke="#4fc3c0"/>
+      <rect x="188" y="120" width="96" height="26" fill="#e8a33d" opacity="0.35" stroke="#e8a33d"/>
+      <rect x="284" y="120" width="160" height="26" fill="#a98cd8" opacity="0.35" stroke="#a98cd8"/>
+      <rect x="444" y="120" width="128" height="26" fill="#4fc3c0" opacity="0.2" stroke="#4fc3c0"/>
+      <rect x="572" y="120" width="128" height="26" fill="#8b909b" opacity="0.2" stroke="#8b909b"/>
+
+      <g font-family="IBM Plex Mono" font-size="9" fill="#8b909b" text-anchor="middle">
+        <text x="124" y="162"><tspan lang="en">G-Buffer</tspan><tspan lang="pl">G-Buffer</tspan></text>
+        <text x="236" y="162"><tspan lang="en">shadows</tspan><tspan lang="pl">cienie</tspan></text>
+        <text x="364" y="162"><tspan lang="en">GI + reflections</tspan><tspan lang="pl">GI + odbicia</tspan></text>
+        <text x="508" y="162"><tspan lang="en">transparency</tspan><tspan lang="pl">transparencja</tspan></text>
+        <text x="636" y="162"><tspan lang="en">post + UI</tspan><tspan lang="pl">post + UI</tspan></text>
+      </g>
+
+      <line x1="60" y1="186" x2="700" y2="186" stroke="#8b909b" stroke-width="1"/>
+      <text x="60" y="206" font-family="IBM Plex Mono" font-size="10" fill="#8b909b">0 ms</text>
+      <text x="700" y="206" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="#8b909b">16,6 ms</text>
+      <text x="60" y="228" font-family="IBM Plex Mono" font-size="10" fill="#e8a33d"><tspan lang="en">your material shares this bar with everything else on screen</tspan><tspan lang="pl">Twój materiał dzieli ten pasek ze wszystkim innym na ekranie</tspan></text>
+    </svg>
+    <div class="diagram-caption"><span lang="en">The proportions are illustrative and vary wildly per project — the point is the shape: nothing in a realtime frame gets the whole budget, so every material decision is a decision about someone else's milliseconds too.</span><span lang="pl">Proporcje są poglądowe i różnią się mocno między projektami — chodzi o kształt: nic w klatce realtime nie dostaje całego budżetu, więc każda decyzja materiałowa jest też decyzją o czyichś milisekundach.</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: The G-Buffer</span><span lang="pl">Etap: G-Buffer</span></div>
+    <h2><span lang="en">Why a deferred shader can't have everything</span><span lang="pl">Dlaczego shader w deferred nie może mieć wszystkiego</span></h2>
+    <p>
+      <span lang="en">Most game engines shade <strong>deferred</strong>: the first pass rasterises geometry and writes each pixel's material properties into a set of screen-sized textures — the <strong>G-Buffer</strong> (geometry buffer) — and lighting runs afterwards, reading those buffers instead of re-evaluating the shader per light. This is what makes hundreds of lights affordable, and it is also the hard wall the material system runs into.</span>
+      <span lang="pl">Większość silników gier cieniuje <strong>deferred</strong>: pierwszy przebieg rasteryzuje geometrię i zapisuje właściwości materiału każdego piksela do zestawu tekstur wielkości ekranu — <strong>G-Buffera</strong> (bufora geometrii) — a oświetlenie liczy się później, czytając te bufory zamiast liczyć shader raz na światło. To dzięki temu setki świateł stają się osiągalne i to jest też twarda ściana, o którą uderza system materiałów.</span>
+    </p>
+    <p>
+      <span lang="en">The G-Buffer has a fixed layout. Base colour, world normal, roughness, metallic, specular, ambient occlusion, a shading-model identifier and a small number of "custom data" slots — that is roughly the whole vocabulary a deferred pixel gets. In Arnold, by contrast, a shader can carry an arbitrary tree of closures to the integrator; there is no fixed budget of per-pixel numbers, because shading happens at the hit point, not from a buffer.</span>
+      <span lang="pl">G-Buffer ma stały układ. Kolor bazowy, normalna w przestrzeni świata, roughness, metallic, specular, ambient occlusion, identyfikator modelu cieniowania i niewielka liczba slotów „custom data" — to mniej więcej całe słownictwo, jakie dostaje piksel w deferred. W Arnoldzie dla odmiany shader może przekazać integratorowi dowolne drzewo closure'ów; nie ma stałego budżetu liczb na piksel, bo cieniowanie dzieje się w punkcie trafienia, a nie z bufora.</span>
+    </p>
+    <p>
+      <span lang="en">Two practical consequences follow, and both explain things that surprise lookdev artists arriving from VFX. First, "shading models" in a game engine are a closed list you pick from (default lit, subsurface, cloth, hair, clear coat, …) rather than a stack you build, because each one is a different way of interpreting the same fixed buffer slots. Second, transparency usually leaves the deferred path entirely and is shaded <strong>forward</strong>, per object — which is exactly why glass, hair and foliage in a game behave like a separate, more restricted material world than everything else.</span>
+      <span lang="pl">Wynikają z tego dwie praktyczne konsekwencje i obie tłumaczą rzeczy, które zaskakują lookdev artystów przychodzących z VFX. Po pierwsze, „modele cieniowania" w silniku gry to zamknięta lista do wyboru (default lit, subsurface, cloth, hair, clear coat, …), a nie stos, który się buduje — bo każdy z nich to inny sposób interpretacji tych samych, stałych slotów bufora. Po drugie, transparencja zwykle w ogóle opuszcza ścieżkę deferred i jest cieniowana <strong>forward</strong>, per obiekt — i właśnie dlatego szkło, włosy i listowie w grze zachowują się jak osobny, bardziej ograniczony świat materiałowy niż cała reszta.</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: The inventory</span><span lang="pl">Etap: Inwentarz</span></div>
+    <h2><span lang="en">What transfers, and what doesn't</span><span lang="pl">Co się przenosi, a co nie</span></h2>
+    <p>
+      <span lang="en">Before touching a single engine, it is worth sorting the previous twenty-three chapters into two piles. The left-hand column below transfers essentially unchanged — the same reasoning, the same numbers, sometimes literally the same texture files. The right-hand column is where a realtime engine substitutes something else, and where an artist trained offline will mispredict the result.</span>
+      <span lang="pl">Zanim dotkniemy jakiegokolwiek silnika, warto posortować poprzednie dwadzieścia trzy rozdziały na dwie kupki. Lewa kolumna poniżej przenosi się w zasadzie bez zmian — to samo rozumowanie, te same liczby, czasem dosłownie te same pliki tekstur. Prawa kolumna to miejsca, w których silnik realtime podstawia coś innego i w których artysta wyszkolony offline źle przewidzi wynik.</span>
+    </p>
+    <div class="table-frame" lang="en">
+      <table class="data-table">
+        <thead><tr><th>Topic</th><th>Transfers 1:1</th><th>Substituted in realtime</th></tr></thead>
+        <tbody>
+          <tr><td>Linear light workflow (Ch. 3)</td><td>Yes — engines shade linear too</td><td>—</td></tr>
+          <tr><td>Colour vs data textures (Ch. 11)</td><td>Yes — same sRGB / raw decision</td><td>—</td></tr>
+          <tr><td>Metal/rough, Fresnel (Ch. 13–14)</td><td>Yes — same parametrisation</td><td>Complex IOR is always the Schlick + edge-tint approximation, never real n + ik</td></tr>
+          <tr><td>Energy conservation (Ch. 15)</td><td>Reasoning yes</td><td>Multi-scatter GGX compensation is often a fitted curve, not integration</td></tr>
+          <tr><td>Global illumination (Ch. 21)</td><td>—</td><td>Screen-space or software/hardware ray tracing with a limited bounce count; off-screen light comes from a coarser cache</td></tr>
+          <tr><td>Subsurface (Ch. 16–17)</td><td>Look intent yes</td><td>Screen-space diffusion profile, not random-walk transport — thin geometry loses its transmission</td></tr>
+          <tr><td>Displacement (Ch. 20)</td><td>Height data yes</td><td>Mostly parallax/normal detail; true tessellation is budgeted geometry, not free micro-detail</td></tr>
+          <tr><td>Hair and cloth (Ch. 19)</td><td>Shading model yes</td><td>Cards and strand LODs instead of full curve sets</td></tr>
+          <tr><td>AOVs and debugging (Ch. 23)</td><td>Concept yes</td><td>Buffer visualisation modes, not arbitrary LPEs</td></tr>
+          <tr><td>Per-material sampling</td><td>—</td><td>Does not exist — quality is set globally, per effect, not per shader</td></tr>
+        </tbody>
+      </table>
+      <div class="table-caption">Sorting the book into what carries over and what gets approximated. The right-hand column is where realtime lookdev is actually learned.</div>
+    </div>
+    <div class="table-frame" lang="pl">
+      <table class="data-table">
+        <thead><tr><th>Temat</th><th>Przenosi się 1:1</th><th>Podstawione w realtime</th></tr></thead>
+        <tbody>
+          <tr><td>Liniowe światło (R.3)</td><td>Tak — silniki też cieniują liniowo</td><td>—</td></tr>
+          <tr><td>Kolor kontra dane (R.11)</td><td>Tak — ta sama decyzja sRGB / raw</td><td>—</td></tr>
+          <tr><td>Metal/rough, Fresnel (R.13–14)</td><td>Tak — ta sama parametryzacja</td><td>Zespolony IOR to zawsze przybliżenie Schlick + edge tint, nigdy prawdziwe n + ik</td></tr>
+          <tr><td>Zachowanie energii (R.15)</td><td>Rozumowanie tak</td><td>Kompensacja multiscatter GGX to zwykle dopasowana krzywa, nie całkowanie</td></tr>
+          <tr><td>Oświetlenie globalne (R.21)</td><td>—</td><td>Przestrzeń ekranu albo ray tracing z limitem odbić; światło spoza ekranu pochodzi z grubszego cache'u</td></tr>
+          <tr><td>Subsurface (R.16–17)</td><td>Intencja looku tak</td><td>Ekranowy profil dyfuzji, nie transport random-walk — cienka geometria traci transmisję</td></tr>
+          <tr><td>Displacement (R.20)</td><td>Dane wysokości tak</td><td>Głównie parallax i detal normalnych; prawdziwa teselacja to budżetowana geometria, nie darmowy mikrodetal</td></tr>
+          <tr><td>Włosy i tkaniny (R.19)</td><td>Model cieniowania tak</td><td>Karty i LOD-y pasm zamiast pełnych krzywych</td></tr>
+          <tr><td>AOV i debugowanie (R.23)</td><td>Koncept tak</td><td>Tryby podglądu buforów, nie dowolne LPE</td></tr>
+          <tr><td>Sampling per materiał</td><td>—</td><td>Nie istnieje — jakość ustawia się globalnie, per efekt, nie per shader</td></tr>
+        </tbody>
+      </table>
+      <div class="table-caption">Podział książki na to, co przechodzi dalej, i to, co zostaje przybliżone. Prawa kolumna to miejsce, w którym naprawdę uczysz się lookdevu realtime.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: New vocabulary</span><span lang="pl">Etap: Nowe słownictwo</span></div>
+    <h2><span lang="en">Four concepts offline lookdev never needed</span><span lang="pl">Cztery pojęcia, których lookdev offline nigdy nie potrzebował</span></h2>
+    <p>
+      <span lang="en"><strong>Level of detail (LOD).</strong> The same asset exists in several geometric and material versions, swapped by distance. A look approved on LOD0 in a close-up says nothing about the silhouette two LODs down, where the normal map may already be baked flat and the clear coat switched off entirely.</span>
+      <span lang="pl"><strong>Poziom szczegółowości (LOD).</strong> Ten sam asset istnieje w kilku wersjach geometrycznych i materiałowych, przełączanych odległością. Look zatwierdzony na LOD0 w zbliżeniu nie mówi nic o sylwetce dwa LOD-y niżej, gdzie normalna może być już wypalona na płasko, a coat wyłączony całkowicie.</span>
+    </p>
+    <p>
+      <span lang="en"><strong>Shader permutations.</strong> A material with switchable features doesn't compile once — it compiles once per combination of switches, per platform. This is why engines distinguish a <em>static</em> switch (compiles a variant, costs build time) from a dynamic parameter (costs frame time), a distinction with no counterpart in an offline shader.</span>
+      <span lang="pl"><strong>Permutacje shaderów.</strong> Materiał z przełączanymi funkcjami nie kompiluje się raz — kompiluje się raz na każdą kombinację przełączników, na każdą platformę. Dlatego silniki rozróżniają przełącznik <em>statyczny</em> (kompiluje wariant, kosztuje czas builda) od parametru dynamicznego (kosztuje czas klatki) — rozróżnienie bez odpowiednika w shaderze offline.</span>
+    </p>
+    <p>
+      <span lang="en"><strong>Temporal accumulation.</strong> TAA and upscalers reuse the previous frames' pixels to pay for the samples the current frame couldn't afford. That is a genuine lookdev concern, not a graphics-programmer detail: fine, high-frequency roughness detail that reads beautifully in a still can shimmer, smear or ghost in motion, and you will only ever see it by moving the camera.</span>
+      <span lang="pl"><strong>Akumulacja czasowa.</strong> TAA i upscalery używają pikseli z poprzednich klatek, żeby zapłacić za próbki, na które bieżąca klatka nie mogła sobie pozwolić. To jest realny problem lookdevu, nie szczegół dla programisty grafiki: drobny, wysokoczęstotliwościowy detal roughness, który świetnie czyta się na stopklatce, potrafi migotać, rozmazywać się albo zostawiać smugi w ruchu — i zobaczysz to wyłącznie ruszając kamerą.</span>
+    </p>
+    <p>
+      <span lang="en"><strong>Auto-exposure.</strong> Games adapt exposure to what the player is looking at. Judging a material while the exposure moves under it is like grading through a viewer with an unpredictable transform (Chapter 6) — the first thing to do in any realtime lookdev scene is to pin exposure to a fixed value, which Chapter 26 comes back to in detail.</span>
+      <span lang="pl"><strong>Auto-ekspozycja.</strong> Gry dopasowują ekspozycję do tego, na co patrzy gracz. Ocenianie materiału, gdy ekspozycja pod nim pływa, to jak grading przez viewer z nieprzewidywalną transformacją (Rozdział 6) — pierwszą rzeczą do zrobienia w każdej scenie lookdevowej realtime jest przybicie ekspozycji do stałej wartości, do czego szczegółowo wraca Rozdział 26.</span>
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-eyebrow"><span lang="en">Stage: The loop</span><span lang="pl">Etap: Pętla</span></div>
+    <h2><span lang="en">A look is a range, not a frame</span><span lang="pl">Look to zakres, nie klatka</span></h2>
+    <p>
+      <span lang="en">Chapter 22 built the turntable as the test that catches a material which only works from one angle. In realtime that test grows a second axis. The player walks around the asset, so every angle happens; the game has a day cycle, so every light direction and colour temperature happens; the game ships on several hardware tiers, so several quality settings happen. Approving a look means approving the worst plausible combination of those, not the best one.</span>
+      <span lang="pl">Rozdział 22 zbudował turntable jako test wyłapujący materiał, który działa tylko z jednego kąta. W realtime ten test dostaje drugą oś. Gracz obchodzi asset dookoła, więc zdarzy się każdy kąt; gra ma cykl dobowy, więc zdarzy się każdy kierunek i każda temperatura barwowa światła; gra wychodzi na kilku poziomach sprzętu, więc zdarzy się kilka ustawień jakości. Zatwierdzenie looku oznacza zatwierdzenie najgorszej prawdopodobnej kombinacji z nich, nie najlepszej.</span>
+    </p>
+    <p>
+      <span lang="en">The practical form this takes is a <strong>lookdev level</strong> — a scene inside the game itself holding the calibration spheres, the grey/chrome balls, a macbeth chart and the assets under review, lit by a small set of saved lighting presets (noon, overcast, dusk, interior practical) that can be cycled instantly. It is the same instrument as the HDRI rig from Chapter 21, rebuilt inside the shipping renderer, and it is the single most useful thing to set up before authoring any material in an engine.</span>
+      <span lang="pl">Praktycznie przybiera to formę <strong>poziomu lookdevowego</strong> — sceny wewnątrz samej gry, w której stoją kule kalibracyjne, szara i chromowana kula, tablica Macbetha i oceniane assety, oświetlone małym zestawem zapisanych presetów świetlnych (południe, zachmurzenie, zmierzch, wnętrze z lampą), przełączanych natychmiast. To dokładnie ten sam przyrząd co rig HDRI z Rozdziału 21, odbudowany wewnątrz docelowego renderera, i to najbardziej użyteczna rzecz do postawienia, zanim zaczniesz autorować jakikolwiek materiał w silniku.</span>
+    </p>
+  </div>
+
+  <div class="panel practice">
+    <div class="panel-label"><span lang="en">From practice</span><span lang="pl">Z praktyki</span></div>
+    <p>
+      <span lang="en">The most common failure when a VFX-trained artist moves to an engine isn't a wrong parameter — it's judging a material in a still, at a fixed exposure, on the highest quality preset, from a camera distance no player will ever hold. The material is then genuinely correct and still looks wrong in the game. Move the camera, cycle the lighting presets, and drop the quality setting one tier before calling anything final.</span>
+      <span lang="pl">Najczęstsza porażka artysty przychodzącego z VFX do silnika to nie zły parametr — to ocenianie materiału na stopklatce, przy stałej ekspozycji, na najwyższym presecie jakości, z odległości kamery, której żaden gracz nigdy nie utrzyma. Materiał jest wtedy naprawdę poprawny i mimo to wygląda źle w grze. Rusz kamerą, przełącz presety świetlne i zejdź o jeden poziom jakości, zanim uznasz cokolwiek za skończone.</span>
+    </p>
+  </div>
+
+  <div class="panel glossary">
+    <div class="panel-label"><span lang="en">Glossary</span><span lang="pl">Słowniczek</span></div>
+    <dl>
+      <dt><span lang="en">Frame budget</span><span lang="pl">Budżet klatki</span></dt>
+      <dd><span lang="en">The total milliseconds available for one frame at the target frame rate — shared by every system, materials included.</span><span lang="pl">Całkowita liczba milisekund na jedną klatkę przy docelowej liczbie klatek — dzielona przez wszystkie systemy, materiały włącznie.</span></dd>
+      <dt><span lang="en">G-Buffer</span><span lang="pl">G-Buffer</span></dt>
+      <dd><span lang="en">The set of screen-sized buffers a deferred renderer fills with per-pixel material properties before lighting runs.</span><span lang="pl">Zestaw buforów wielkości ekranu, które renderer deferred wypełnia właściwościami materiału per piksel, zanim policzy oświetlenie.</span></dd>
+      <dt><span lang="en">Deferred / forward shading</span><span lang="pl">Cieniowanie deferred / forward</span></dt>
+      <dd><span lang="en">Lighting computed after rasterisation from buffers (deferred), or during rasterisation per object (forward, used for transparency).</span><span lang="pl">Oświetlenie liczone po rasteryzacji z buforów (deferred) albo w trakcie rasteryzacji per obiekt (forward, używane do transparencji).</span></dd>
+      <dt><span lang="en">Shading model</span><span lang="pl">Model cieniowania</span></dt>
+      <dd><span lang="en">A fixed interpretation of the G-Buffer slots (default lit, subsurface, cloth, hair, …) — chosen from a list, not assembled from closures.</span><span lang="pl">Stała interpretacja slotów G-Buffera (default lit, subsurface, cloth, hair, …) — wybierana z listy, nie składana z closure'ów.</span></dd>
+      <dt><span lang="en">Shader permutation</span><span lang="pl">Permutacja shadera</span></dt>
+      <dd><span lang="en">One compiled variant of a material, produced per combination of static switches and per target platform.</span><span lang="pl">Jeden skompilowany wariant materiału, powstający na każdą kombinację przełączników statycznych i na każdą platformę docelową.</span></dd>
+      <dt><span lang="en">Temporal accumulation</span><span lang="pl">Akumulacja czasowa</span></dt>
+      <dd><span lang="en">Reusing samples from previous frames (TAA, upscalers) to reach a quality the current frame's budget couldn't buy.</span><span lang="pl">Wykorzystanie próbek z poprzednich klatek (TAA, upscalery), żeby osiągnąć jakość, na którą budżet bieżącej klatki nie wystarczał.</span></dd>
+    </dl>
+  </div>
+
+  <div class="next">
+    <div class="panel-label" style="color:var(--violet);"><span lang="en">What's next</span><span lang="pl">Co dalej</span></div>
+    <p>
+      <span lang="en">This chapter set the constraints that every engine works under. Chapter 25 takes the most widely used of them — Unreal Engine 5 — and maps its material system onto the vocabulary of Chapters 13–15: what a master material is, why instances matter more here than anywhere in VFX, and what Substrate changes about the fixed shading-model list above.</span>
+      <span lang="pl">Ten rozdział ustawił ograniczenia, w których pracuje każdy silnik. Rozdział 25 bierze najpowszechniejszy z nich — Unreal Engine 5 — i mapuje jego system materiałów na słownictwo Rozdziałów 13–15: czym jest master material, dlaczego instancje znaczą tu więcej niż gdziekolwiek w VFX i co Substrate zmienia w opisanej wyżej zamkniętej liście modeli cieniowania.</span>
+    </p>
+  </div>
+
+<div class="site-nav chapter-nav">
+    <a class="nav-prev" href="rozdzial-23-aov-debugging-arnold-vs-renderman.html"><span lang="en">← Previous</span><span lang="pl">← Poprzedni</span></a>
+    <a class="nav-toc" href="../index.html"><span lang="en">Contents</span><span lang="pl">Spis treści</span></a>
+    <a class="nav-next" href="rozdzial-25-unreal-engine-5-w-praktyce.html"><span lang="en">Next →</span><span lang="pl">Następny →</span></a>
+</div>
+</div>
+<script type="module" src="../assets/i18n.js"></script>
+</body>
+</html>
