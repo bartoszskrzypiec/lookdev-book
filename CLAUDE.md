@@ -9,11 +9,16 @@ for production renderers (Arnold, RenderMan) to technical artists. It goes deep 
 foundations of color grading (gamma, grade, offset, ASC CDL, saturation matrices, ...) and treats
 that as one of several equally-weighted pillars alongside practical material authoring (dielectrics,
 metals, SSS, hair, cloth, layered materials) and lookdev lighting/review (HDRI rigs, turntables,
-calibrated viewing environments). 24 numbered main chapters (rozdziały) build linearly on each
+calibrated viewing environments). 29 numbered main chapters (rozdziały) build linearly on each
 other; 23 lettered appendices (dodatki A–W) go deeper into specific topics (full derivations,
 renderer-specific parameter references); one computational companion (pomocnik) walks through
-grading math by hand. Live at https://bartoszskrzypiec.github.io/lookdev-book/ (once the GitHub
-repo + Pages are set up — not yet done as of the initial commit).
+grading math by hand. Live at https://bartoszskrzypiec.github.io/lookdev-book/, deployed from
+`main` via GitHub Pages.
+
+R.24–28 are **Część VIII**, the realtime/gamedev part: the same craft under a 16,6 ms frame
+budget (Unreal Engine 5, REDengine and in-house engines, realtime colour management, GPU
+texture/shader budgets). It was added after the offline chapters were written, which is why the
+epilog is R.29 and not R.24 — see "Numbering is append-only" below before adding anything to it.
 
 This is a living project, not a one-shot publication — chapters and appendices get revisited,
 deepened, and rewritten over time, exactly like its two sibling books. Don't build rigid generated
@@ -55,7 +60,8 @@ branch → `main` / `/(root)`) once the GitHub repo exists.
 
 ```
 index.html                                — table of contents (spis treści), root only
-rozdzialy/rozdzial-NN-slug.html           — 24 main chapters, NN zero-padded 01–24
+rozdzialy/rozdzial-NN-slug.html           — 29 main chapters, NN zero-padded 01–29; R.24–28
+                                            are the realtime/gamedev part, R.29 is the epilog
 dodatki/dodatek-x-slug.html               — 23 lettered appendices, x = a–w, in six thematic
                                             blocks (see index.html part-labels): matematyka koloru
                                             w głębi (A–F), ACES i zarządzanie kolorem (G–J), Arnold
@@ -106,6 +112,12 @@ introducing real math typesetting. Only the *vocabulary* inside components chang
 
 ## Content authoring rules
 
+- **Numbering is append-only — inserting a chapter renumbers everything after it.** Część VIII
+  (R.24–28) went in before the epilog, which moved the epilog from R.24 to R.29: its file, its
+  `.eyebrow`, its `.viewport-readout` span, both nav links pointing at it, the `index.html` row and
+  part label, and the prose in R.23 that named it. If you insert again, grep for the old number as
+  prose (`Rozdział NN`) *and* as a filename, and check `index.html`'s subtitle, which states the
+  chapter count. Appending after the last chapter avoids all of it.
 - **Never rename/reletter dodatki (A–W) without asking**, even if the ordering looks imperfect.
   Renumbering breaks prose cross-references ("Dodatek H", "Rozdział 6", …) scattered by name across
   *other* files — a much bigger, riskier change than it first appears.
@@ -123,6 +135,17 @@ introducing real math typesetting. Only the *vocabulary* inside components chang
   "status" block entirely (don't leave "W przygotowaniu" language anywhere), keep the existing
   `.site-nav` as-is unless the structure itself changes, and keep the hook sentence in `index.html`
   and the chapter's own `.subtitle` in sync if it's reworded.
+- **Bilingual pages are a per-page decision, not a book-wide one.** R.14 and all of Część VIII
+  (R.24–28) ship both languages in one file as `lang="en"`/`lang="pl"` sibling elements, with
+  `<html lang="en" data-lang="en" data-i18n-storage="ldb-lang" data-i18n-default="en">`, the inline
+  boot script, `assets/widgets.css`, `.topnav--i18n` plus the `.lang-switch` markup, and
+  `assets/i18n.js` as a module at the end of the body. Both `data-title-en` and `data-title-pl`
+  must be authored on `<title>` — i18n.js never guesses one from the other. Everything else in the
+  book is Polish-only; `index.html` is too, and that's fine, since a Polish browser locale lands on
+  the Polish side of a bilingual page by itself. When editing such a page, change both languages or
+  neither — a lone-language edit is invisible to half the readers. Balance check:
+  `grep -c '<span lang="en">'` vs `'<span lang="pl">'` (and the same for `<tspan>` inside SVG
+  diagrams) should come out equal.
 - **Arnold and RenderMan in parallel**: per-topic content (Część V–VI especially) should show both
   renderers' actual node/parameter names side by side (tables are fine), not just one with the
   other as a footnote — this was an explicit scope decision, not a default to drift away from.
