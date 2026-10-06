@@ -162,6 +162,7 @@
       <span lang="en">The fix is to convert the lost normal length into extra roughness at each mip level — the classic Toksvig-style variance-to-roughness mapping. In Unreal it is a texture setting: point a roughness texture at its normal map as a composite texture, and each roughness mip is generated with that correction applied. Turning it on for every roughness map that has a matching normal map is close to free and removes a whole class of "it shimmers in motion" notes.</span>
       <span lang="pl">Lekarstwem jest zamiana utraconej długości normalnej na dodatkowy roughness na każdym poziomie mipa — klasyczne odwzorowanie wariancji na roughness w stylu Toksviga. W Unrealu to ustawienie tekstury: wskaż teksturze roughness jej mapę normalnych jako composite texture, a każdy mip roughness powstanie z nałożoną korektą. Włączenie tego dla każdej mapy roughness mającej odpowiadającą mapę normalnych jest niemal darmowe i usuwa całą klasę uwag „migocze w ruchu".</span>
     </p>
+    <a class="inline-deeper" href="https://bartoszskrzypiec.github.io/raytracing-book/dodatki/dodatek-g-mipmapping.html"><span lang="en">&darr; raytracing-book, Appendix G &mdash; mipmapping and texture filtering: why the level is chosen the way it is</span><span lang="pl">&darr; raytracing-book, Dodatek G &mdash; mipmapping i filtrowanie tekstur: dlaczego poziom wybierany jest w&#322;a&#347;nie tak</span></a>
   </div>
 
   <div class="section">
@@ -192,6 +193,7 @@
       <span lang="en">On the shader side the equivalent budget is instructions and samples per pixel. The costs that surprise artists are rarely arithmetic: they are extra texture samples, dependent samples (a texture whose UVs come from another texture read), and shader permutations from static switches nobody uses. A master material with every feature switched on for every asset is the shader-side twin of the 4K-texture-for-a-doorknob problem.</span>
       <span lang="pl">Po stronie shadera odpowiednikiem budżetu są instrukcje i próbkowania na piksel. Koszty, które zaskakują artystów, rzadko są arytmetyką: to dodatkowe próbkowania tekstur, próbkowania zależne (tekstura, której UV pochodzą z odczytu innej tekstury) i permutacje shadera z przełączników statycznych, których nikt nie używa. Master material z wszystkimi funkcjami włączonymi dla każdego assetu to shaderowy bliźniak problemu tekstury 4K na klamkę.</span>
     </p>
+    <a class="inline-deeper" href="https://bartoszskrzypiec.github.io/raytracing-book/dodatki/dodatek-j-shading-network-obciazenie.html"><span lang="en">&darr; raytracing-book, Appendix J &mdash; the same question offline: what a shading network&rsquo;s complexity costs a renderer</span><span lang="pl">&darr; raytracing-book, Dodatek J &mdash; to samo pytanie offline: ile z&#322;o&#380;ono&#347;&#263; sieci shader&oacute;w kosztuje renderer</span></a>
   </div>
 
   <div class="panel practice">
