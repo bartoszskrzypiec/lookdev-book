@@ -32,7 +32,7 @@
     <ul>
       <li><span class="term-amber">Promień</span> w Arnoldzie i <span class="term-amber">mean free path</span> w RenderManie to ta sama wielkość fizyczna pod dwiema nazwami: przeciętny dystans, jaki foton pokonuje pod powierzchnią, zanim rozproszy się i wróci na zewnątrz.</li>
       <li>Arnold wystawia ją jako <code>subsurface_radius</code> (per kanał RGB) pomnożony przez osobny <code>subsurface_scale</code>; RenderMan jako <code>diffuseMeanFreePath</code>, skalowane globalnym <code>unitLength</code> sceny — to dwa różne miejsca schowania tego samego przelicznika jednostek.</li>
-      <li>„Wosk zamiast plastiku" to prawie zawsze pomyłka w jednostkach, nie zły gust — wpisany promień, który w rzeczywistości wynosi metry zamiast milimetrów, rozmywa geometrię; promień, który wynosi mikrony zamiast milimetrów, wyłącza SSS niemal całkowicie.</li>
+      <li>„Wosk zamiast plastiku” to prawie zawsze pomyłka w jednostkach, nie zły gust — wpisany promień, który w rzeczywistości wynosi metry zamiast milimetrów, rozmywa geometrię; promień, który wynosi mikrony zamiast milimetrów, wyłącza SSS niemal całkowicie.</li>
     </ul>
   </div>
 
@@ -76,7 +76,7 @@
       <div class="step"><span class="k">Scena</span> — 1 jednostka sceny = 1 m → <span class="k">subsurface_scale</span> = <span class="v">0,01</span> (jednostka promienia zaczyna znaczyć 1 cm)</div>
       <div class="step"><span class="k">subsurface_radius</span> = <span class="v">(0,37; 0,14; 0,07)</span> — wpisane wprost, bo scale już przeliczył jednostki</div>
       <div class="step"><span class="k">Rzeczywisty promień</span> = subsurface_radius · subsurface_scale = 0,37 cm, 0,14 cm, 0,07 cm</div>
-      <div class="result">To niemal dokładnie te same liczby fizyczne, co zmierzona wartość diffuseMeanFreePath dla materiału „Skin1" w tabeli RenderMana niżej: 3,67 mm / 1,37 mm / 0,68 mm.</div>
+      <div class="result">To niemal dokładnie te same liczby fizyczne, co zmierzona wartość diffuseMeanFreePath dla materiału „Skin1” w tabeli RenderMana niżej: 3,67 mm / 1,37 mm / 0,68 mm.</div>
       <div class="check">Sprawdzenie: 0,37 cm = 3,7 mm ≈ 3,67 mm; 0,14 cm = 1,4 mm ≈ 1,37 mm; 0,07 cm = 0,7 mm ≈ 0,68 mm — zgodność w granicach zaokrągleń, bo to ta sama wielkość fizyczna, tylko inaczej sparametryzowana w dwóch silnikach.</div>
     </div>
   </div>
@@ -115,7 +115,7 @@
         </tbody>
       </table>
     </div>
-    <p class="table-caption">Zmierzone wartości referencyjne (Jensen i in., „A Practical Model for Subsurface Light Transport"). Punkt startowy do dalszego strojenia, nie gotowy wynik — geometria, oświetlenie i skala kamery zawsze wymagają korekty.</p>
+    <p class="table-caption">Zmierzone wartości referencyjne (Jensen i in., „A Practical Model for Subsurface Light Transport”). Punkt startowy do dalszego strojenia, nie gotowy wynik — geometria, oświetlenie i skala kamery zawsze wymagają korekty.</p>
 
     <div class="diagram-frame">
       <div class="diagram-hud"><span>Radius.per.channel</span><span>profil rozpraszania skóry (Skin1): R przenika głębiej niż B</span></div>
@@ -172,7 +172,7 @@
       <div class="step"><span class="k">Artysta przepisuje</span> subsurface_radius = <span class="v">(3,67; 1,37; 0,68)</span> wprost z tabeli dmfp RenderMana (wartości w mm)</div>
       <div class="step"><span class="k">Scena w Arnoldzie</span> zbudowana w metrach, <span class="k">subsurface_scale</span> pozostawiony na domyślnym <span class="v">1</span> — bez przeliczenia</div>
       <div class="step"><span class="k">Rzeczywisty promień</span> = subsurface_radius · subsurface_scale = 3,67 · 1 = <span class="v">3,67 metra</span> (kanał R)</div>
-      <div class="result">Promień 3,67 metra na twarzy szerokiej na ~15 cm: światło „przenika" praktycznie przez całą głowę, zanim wróci na powierzchnię. Lokalny kontrast znika, forma się rozmywa — efekt wygląda jak przezroczysty wosk albo mydło, nie jak skóra.</div>
+      <div class="result">Promień 3,67 metra na twarzy szerokiej na ~15 cm: światło „przenika” praktycznie przez całą głowę, zanim wróci na powierzchnię. Lokalny kontrast znika, forma się rozmywa — efekt wygląda jak przezroczysty wosk albo mydło, nie jak skóra.</div>
       <div class="check">Poprawka: subsurface_scale = 0,001 (żeby liczby wpisane w mm faktycznie znaczyły milimetry w metrowej scenie) → rzeczywisty promień wraca do 3,67 mm, w realistycznym zakresie.</div>
     </div>
     <p>Odwrotny błąd daje odwrotny efekt: promień, który w rzeczywistości wychodzi dziesięć razy za mały (np. mikrony zamiast milimetrów), sprawia, że SSS praktycznie się wyłącza — powierzchnia przestaje przepuszczać jakiekolwiek światło pod sobą i wygląda płasko, matowo, jak pomalowany plastik, dokładnie odwrotnie niż wosk. Oba objawy to ten sam błąd o przeciwnym znaku: promień/MFP przestał odpowiadać realnej skali obiektu. Najbezpieczniejsza obrona to zawsze zacząć od zmierzonej wartości referencyjnej (jak tabela Jensena wyżej) i świadomie przeliczyć ją przez scale/unitLength danej sceny — nie od suwaka na oko.</p>

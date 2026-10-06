@@ -31,7 +31,7 @@
     <div class="panel-label">TL;DR</div>
     <ul>
       <li>Materiał zbudowany pod jednym HDRI może wyglądać zupełnie inaczej pod drugim — rig oświetleniowy to <span class="term-amber">zmienna niezależna</span> od shadera, nie jego dopełnienie.</li>
-      <li>Dobry rig lookdevowy to zwykle nie „jedno duże, ładne HDRI", tylko <span class="term-cyan">skalibrowany, powtarzalny zestaw</span> — neutralne środowisko studyjne plus referencyjne kule (chrome i szara), wybrane pod spójność ocen, nie pod realizm konkretnej sceny.</li>
+      <li>Dobry rig lookdevowy to zwykle nie „jedno duże, ładne HDRI”, tylko <span class="term-cyan">skalibrowany, powtarzalny zestaw</span> — neutralne środowisko studyjne plus referencyjne kule (chrome i szara), wybrane pod spójność ocen, nie pod realizm konkretnej sceny.</li>
       <li>Oba renderery czytają HDRI przez dome light (Arnold <code>skydome_light</code>, RenderMan <code>PxrDomeLight</code>) z rotacją, ekspozycją i widocznością dla kamery jako głównymi pokrętłami — ale prawdziwa praca kalibracyjna dzieje się przy <em>doborze</em> HDRI, nie w parametrach samego node'a światła.</li>
     </ul>
   </div>
@@ -39,7 +39,7 @@
   <div class="section">
     <div class="section-eyebrow">Etap: Dlaczego HDRI</div>
     <h2>Jedna tekstura zamiast dziesiątek świateł</h2>
-    <p>Prawdziwe odbicia specularne pokazują całe otoczenie — nie jeden punkt światła, tylko każdy kierunek, z którego cokolwiek świeci. HDRI (obraz o wysokim zakresie dynamiki, owijający scenę jako sfera albo kopuła) daje to za darmo w jednej teksturze: realistyczne, wielokierunkowe oświetlenie i odbicia, które setką ręcznie ustawionych świateł punktowych dałoby się odtworzyć tylko w przybliżeniu, i to kosztem znacznie większego nakładu pracy. Dlatego HDRI jest standardowym fundamentem oświetlenia lookdevowego — nie dlatego, że jest „ładne", tylko dlatego, że niesie informację o kierunkowości światła, której żaden pojedynczy light nie ma.</p>
+    <p>Prawdziwe odbicia specularne pokazują całe otoczenie — nie jeden punkt światła, tylko każdy kierunek, z którego cokolwiek świeci. HDRI (obraz o wysokim zakresie dynamiki, owijający scenę jako sfera albo kopuła) daje to za darmo w jednej teksturze: realistyczne, wielokierunkowe oświetlenie i odbicia, które setką ręcznie ustawionych świateł punktowych dałoby się odtworzyć tylko w przybliżeniu, i to kosztem znacznie większego nakładu pracy. Dlatego HDRI jest standardowym fundamentem oświetlenia lookdevowego — nie dlatego, że jest „ładne”, tylko dlatego, że niesie informację o kierunkowości światła, której żaden pojedynczy light nie ma.</p>
   </div>
 
   <div class="section">

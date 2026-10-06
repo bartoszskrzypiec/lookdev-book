@@ -32,16 +32,16 @@
     <ul>
       <li><span class="term-amber">Liniowość radiometryczna</span> oznacza: podwojenie liczby fotonów daje podwojenie zapisanej wartości. Lambert, Fresnel i GGX (raytracing-book, Rozdziały 5, 10–11) są zbudowane na tym założeniu — działają poprawnie tylko na liczbach, które je spełniają.</li>
       <li>Pliki tekstur i to, co widzisz na ekranie, są zakodowane <em>percepcyjnie</em> (Rozdział 2), nie fizycznie — trzeba je zdekodować na wejściu do obliczeń i zakodować dopiero na samym końcu, przy wyświetlaniu.</li>
-      <li>Pominięcie tego kroku nie daje oczywistego błędu w stylu „coś nie działa" — daje subtelnie zmatowiały, przyciemniony albo zbyt kontrastowy obraz, mimo że wzory są matematycznie bez zarzutu.</li>
+      <li>Pominięcie tego kroku nie daje oczywistego błędu w stylu „coś nie działa” — daje subtelnie zmatowiały, przyciemniony albo zbyt kontrastowy obraz, mimo że wzory są matematycznie bez zarzutu.</li>
     </ul>
   </div>
 
   <div class="section">
     <div class="section-eyebrow">Etap: Definicja</div>
-    <h2>Co dokładnie znaczy „liniowe"</h2>
+    <h2>Co dokładnie znaczy „liniowe”</h2>
     <p>Przypomnij sobie najprostszy wzór na oświetlenie rozproszone z raytracing-book (Rozdział 5):</p>
     <div class="formula">L_o = k_d · (N·L) · L_i<span class="sub">L_o — jasność odbita w stronę obserwatora; k_d — kolor/albedo powierzchni; N·L — cosinus kąta między normalną a kierunkiem do światła; L_i — jasność światła padającego</span></div>
-    <p>Ten wzór jest wprost proporcjonalny względem L_i: podwój jasność źródła światła, a L_o też się podwoi. To jest dokładnie to, co znaczy <span class="term-amber">liniowość radiometryczna</span> — nie „prosta linia na wykresie" w sensie ogólnym, tylko konkretna własność fizyczna: ilość energii świetlnej i liczba, którą tę energię reprezentujesz, rosną w tym samym tempie. Dwa razy więcej fotonów = dwa razy większa liczba. Bez tego założenia każdy wzór z poprzedniej książki — Lambert, Fresnel, rozkład GGX — przestaje dawać sensowne wyniki, bo cała ich algebra (dodawanie wkładów wielu świateł, mnożenie przez cosinus, całkowanie po hemisferze) zakłada dokładnie tę proporcjonalność.</p>
+    <p>Ten wzór jest wprost proporcjonalny względem L_i: podwój jasność źródła światła, a L_o też się podwoi. To jest dokładnie to, co znaczy <span class="term-amber">liniowość radiometryczna</span> — nie „prosta linia na wykresie” w sensie ogólnym, tylko konkretna własność fizyczna: ilość energii świetlnej i liczba, którą tę energię reprezentujesz, rosną w tym samym tempie. Dwa razy więcej fotonów = dwa razy większa liczba. Bez tego założenia każdy wzór z poprzedniej książki — Lambert, Fresnel, rozkład GGX — przestaje dawać sensowne wyniki, bo cała ich algebra (dodawanie wkładów wielu świateł, mnożenie przez cosinus, całkowanie po hemisferze) zakłada dokładnie tę proporcjonalność.</p>
   </div>
 
   <div class="section">
@@ -64,9 +64,9 @@
       <div class="step"><span class="k">Poprawnie</span> — uśrednienie w linear: (0,029 + 0,612) / 2 ≈ <span class="v">0,321</span> (linear)</div>
       <div class="step"><span class="k">Kodowanie z powrotem</span>: 0,321^(1/2,2) ≈ <span class="v">0,596</span></div>
       <div class="result">Wynik błędny: 0,5 &nbsp;•&nbsp; wynik poprawny: 0,596 — różnica ok. 16%, widoczna jako przyciemnienie</div>
-      <div class="check">Sprawdzenie kierunku błędu: gamma „ściska" jasne wartości bliżej 1 i „rozciąga" ciemne bliżej 0, więc uśrednianie wprost w tej przestrzeni zawsze zaniża wynik względem uśredniania fizycznej jasności — stąd błąd jest systematycznym przyciemnieniem, nie losowym szumem.</div>
+      <div class="check">Sprawdzenie kierunku błędu: gamma „ściska” jasne wartości bliżej 1 i „rozciąga” ciemne bliżej 0, więc uśrednianie wprost w tej przestrzeni zawsze zaniża wynik względem uśredniania fizycznej jasności — stąd błąd jest systematycznym przyciemnieniem, nie losowym szumem.</div>
     </div>
-    <p>Ten sam mechanizm — nie losowy, tylko systematyczny błąd w jedną stronę — stoi za klasycznym objawem „render wygląda spłowiały/zmatowiały mimo poprawnych wzorów": ktoś gdzieś w łańcuchu uśrednił, przefiltrował albo przemnożył wartości zakodowane percepcyjnie tak, jakby były liniowe.</p>
+    <p>Ten sam mechanizm — nie losowy, tylko systematyczny błąd w jedną stronę — stoi za klasycznym objawem „render wygląda spłowiały/zmatowiały mimo poprawnych wzorów”: ktoś gdzieś w łańcuchu uśrednił, przefiltrował albo przemnożył wartości zakodowane percepcyjnie tak, jakby były liniowe.</p>
   </div>
 
   <div class="section">
@@ -75,14 +75,14 @@
     <ul class="compact">
       <li><strong>Tekstury kolorowe wchodzące bezpośrednio do BRDF</strong> — plik Base Color/Albedo zapisany jako PNG czy JPG jest w sRGB; jeśli renderer nie zdekoduje go przed podstawieniem jako k_d we wzorze powyżej, cały shading network liczy na złych liczbach od samego początku. Pełny mechanizm w Rozdziale 11.</li>
       <li><strong>Filtering i mipmapping na zakodowanych wartościach</strong> — dokładnie ten sam problem co w policzonym przykładzie wyżej, tylko wykonywany automatycznie przez GPU czy renderer przy budowie mipmap. Jeśli filtrowanie zdarza się przed dekodowaniem, każdy poziom mipmapy jest odrobinę pociemniony (raytracing-book, Dodatek G, opisuje mechanikę mipmappingu samą w sobie).</li>
-      <li><strong>Blending i crossfade w kompozytingu</strong> — dissolve między dwoma ujęciami, rozmycie ruchu liczone na już zakodowanym obrazie, czy nawet zwykłe „opacity 50%" w złym trybie — wszystkie cierpią na ten sam błąd, jeśli operują na wartościach display-referred zamiast scene-referred.</li>
+      <li><strong>Blending i crossfade w kompozytingu</strong> — dissolve między dwoma ujęciami, rozmycie ruchu liczone na już zakodowanym obrazie, czy nawet zwykłe „opacity 50%” w złym trybie — wszystkie cierpią na ten sam błąd, jeśli operują na wartościach display-referred zamiast scene-referred.</li>
     </ul>
   </div>
 
   <div class="section">
     <div class="section-eyebrow">Etap: Dyscyplina</div>
     <h2>Linear light workflow jako reguła, nie wyjątek</h2>
-    <p><span class="term-amber">Linear light workflow</span> to nazwa dla prostej zasady porządkującej wszystko powyżej: <strong>dekoduj na wejściu, licz w scene-linear, koduj dopiero na wyjściu</strong> — i nigdzie pomiędzy. „Scene-linear" oznacza tu przestrzeń, w której liczby są wprost proporcjonalne do fizycznej ilości światła (tak jak w formule z pierwszej sekcji) — cały shading, cały light transport, całe blending i filtering z poprzedniej sekcji powinny się odbywać właśnie w niej. Kodowanie percepcyjne (gamma, log) pojawia się tylko w dwóch miejscach: na wejściu, przy odczycie tekstur kolorowych zapisanych percepcyjnie (dekodowanie w drugą stronę), i na wyjściu, przy wysłaniu finalnego obrazu na ekran (display transform).</p>
+    <p><span class="term-amber">Linear light workflow</span> to nazwa dla prostej zasady porządkującej wszystko powyżej: <strong>dekoduj na wejściu, licz w scene-linear, koduj dopiero na wyjściu</strong> — i nigdzie pomiędzy. „Scene-linear” oznacza tu przestrzeń, w której liczby są wprost proporcjonalne do fizycznej ilości światła (tak jak w formule z pierwszej sekcji) — cały shading, cały light transport, całe blending i filtering z poprzedniej sekcji powinny się odbywać właśnie w niej. Kodowanie percepcyjne (gamma, log) pojawia się tylko w dwóch miejscach: na wejściu, przy odczycie tekstur kolorowych zapisanych percepcyjnie (dekodowanie w drugą stronę), i na wyjściu, przy wysłaniu finalnego obrazu na ekran (display transform).</p>
 
     <div class="diagram-frame">
       <div class="diagram-hud"><span>Linear.light.pipeline</span><span>decode → compute → encode</span></div>
@@ -120,7 +120,7 @@
       <div class="diagram-caption">Jedyne miejsca z kodowaniem percepcyjnym to skrajne kolumny — wejście i wyjście. Cała środkowa strefa, gdzie dzieje się shading, liczy wyłącznie na wartościach liniowych.</div>
     </div>
 
-    <p>Zwróć uwagę, że sam mechanizm dekodowania i kodowania to na razie czarna skrzynka — „jakaś krzywa gamma". Rozdział 5 pokazuje, czym dokładnie ta krzywa jest (i że prawdziwe sRGB to coś więcej niż czysta potęga), a Rozdział 6 pokazuje, jak w praktyce ten cały pipeline konfiguruje się jednym configiem OCIO zamiast ręcznie w każdym node'zie. Ta sama zasada „dekoduj na wejściu, koduj na wyjściu" jest już wspomniana pobieżnie w raytracing-book (Dodatek E) — tam jako ciekawostka zamykająca temat renderowania; tutaj jest to fundament, na którym stoi reszta książki.</p>
+    <p>Zwróć uwagę, że sam mechanizm dekodowania i kodowania to na razie czarna skrzynka — „jakaś krzywa gamma”. Rozdział 5 pokazuje, czym dokładnie ta krzywa jest (i że prawdziwe sRGB to coś więcej niż czysta potęga), a Rozdział 6 pokazuje, jak w praktyce ten cały pipeline konfiguruje się jednym configiem OCIO zamiast ręcznie w każdym node'zie. Ta sama zasada „dekoduj na wejściu, koduj na wyjściu” jest już wspomniana pobieżnie w raytracing-book (Dodatek E) — tam jako ciekawostka zamykająca temat renderowania; tutaj jest to fundament, na którym stoi reszta książki.</p>
   </div>
 
   <div class="panel glossary">
@@ -139,7 +139,7 @@
 
   <div class="next">
     <div class="panel-label" style="color:var(--violet);">Co dalej</div>
-    <p>Sama liniowość jeszcze nie mówi, <em>które</em> RGB. Ta sama liczba „czerwony = 0,8" oznacza inny fizyczny kolor w sRGB niż w ACEScg — Rozdział 4 pokazuje, skąd się bierze ta różnica i jak jedna macierz 3×3 tłumaczy między dowolnymi dwiema przestrzeniami barw.</p>
+    <p>Sama liniowość jeszcze nie mówi, <em>które</em> RGB. Ta sama liczba „czerwony = 0,8” oznacza inny fizyczny kolor w sRGB niż w ACEScg — Rozdział 4 pokazuje, skąd się bierze ta różnica i jak jedna macierz 3×3 tłumaczy między dowolnymi dwiema przestrzeniami barw.</p>
   </div>
 
 <div class="site-nav chapter-nav">

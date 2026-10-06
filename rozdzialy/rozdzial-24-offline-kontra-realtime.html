@@ -116,11 +116,11 @@
     </p>
     <p>
       <span lang="en">The G-Buffer has a fixed layout. Base colour, world normal, roughness, metallic, specular, ambient occlusion, a shading-model identifier and a small number of "custom data" slots — that is roughly the whole vocabulary a deferred pixel gets. In Arnold, by contrast, a shader can carry an arbitrary tree of closures to the integrator; there is no fixed budget of per-pixel numbers, because shading happens at the hit point, not from a buffer.</span>
-      <span lang="pl">G-Buffer ma stały układ. Kolor bazowy, normalna w przestrzeni świata, roughness, metallic, specular, ambient occlusion, identyfikator modelu cieniowania i niewielka liczba slotów „custom data" — to mniej więcej całe słownictwo, jakie dostaje piksel w deferred. W Arnoldzie dla odmiany shader może przekazać integratorowi dowolne drzewo closure'ów; nie ma stałego budżetu liczb na piksel, bo cieniowanie dzieje się w punkcie trafienia, a nie z bufora.</span>
+      <span lang="pl">G-Buffer ma stały układ. Kolor bazowy, normalna w przestrzeni świata, roughness, metallic, specular, ambient occlusion, identyfikator modelu cieniowania i niewielka liczba slotów „custom data” — to mniej więcej całe słownictwo, jakie dostaje piksel w deferred. W Arnoldzie dla odmiany shader może przekazać integratorowi dowolne drzewo closure'ów; nie ma stałego budżetu liczb na piksel, bo cieniowanie dzieje się w punkcie trafienia, a nie z bufora.</span>
     </p>
     <p>
       <span lang="en">Two practical consequences follow, and both explain things that surprise lookdev artists arriving from VFX. First, "shading models" in a game engine are a closed list you pick from (default lit, subsurface, cloth, hair, clear coat, …) rather than a stack you build, because each one is a different way of interpreting the same fixed buffer slots. Second, transparency usually leaves the deferred path entirely and is shaded <strong>forward</strong>, per object — which is exactly why glass, hair and foliage in a game behave like a separate, more restricted material world than everything else.</span>
-      <span lang="pl">Wynikają z tego dwie praktyczne konsekwencje i obie tłumaczą rzeczy, które zaskakują lookdev artystów przychodzących z VFX. Po pierwsze, „modele cieniowania" w silniku gry to zamknięta lista do wyboru (default lit, subsurface, cloth, hair, clear coat, …), a nie stos, który się buduje — bo każdy z nich to inny sposób interpretacji tych samych, stałych slotów bufora. Po drugie, transparencja zwykle w ogóle opuszcza ścieżkę deferred i jest cieniowana <strong>forward</strong>, per obiekt — i właśnie dlatego szkło, włosy i listowie w grze zachowują się jak osobny, bardziej ograniczony świat materiałowy niż cała reszta.</span>
+      <span lang="pl">Wynikają z tego dwie praktyczne konsekwencje i obie tłumaczą rzeczy, które zaskakują lookdev artystów przychodzących z VFX. Po pierwsze, „modele cieniowania” w silniku gry to zamknięta lista do wyboru (default lit, subsurface, cloth, hair, clear coat, …), a nie stos, który się buduje — bo każdy z nich to inny sposób interpretacji tych samych, stałych slotów bufora. Po drugie, transparencja zwykle w ogóle opuszcza ścieżkę deferred i jest cieniowana <strong>forward</strong>, per obiekt — i właśnie dlatego szkło, włosy i listowie w grze zachowują się jak osobny, bardziej ograniczony świat materiałowy niż cała reszta.</span>
     </p>
   </div>
 
@@ -167,6 +167,7 @@
       </table>
       <div class="table-caption">Podział książki na to, co przechodzi dalej, i to, co zostaje przybliżone. Prawa kolumna to miejsce, w którym naprawdę uczysz się lookdevu realtime.</div>
     </div>
+    <a class="inline-deeper" href="https://bartoszskrzypiec.github.io/raytracing-book/dodatki/dodatek-af-prefiltered-ibl.html"><span lang="en">&darr; raytracing-book, Appendix AF &mdash; split-sum: the exact approximation an engine&rsquo;s environment reflection is built on</span><span lang="pl">&darr; raytracing-book, Dodatek AF &mdash; split-sum: dok&#322;adnie to przybli&#380;enie, na kt&oacute;rym stoi odbicie &#347;rodowiskowe w silniku</span></a>
   </div>
 
   <div class="section">
@@ -201,6 +202,7 @@
       <span lang="en">The practical form this takes is a <strong>lookdev level</strong> — a scene inside the game itself holding the calibration spheres, the grey/chrome balls, a macbeth chart and the assets under review, lit by a small set of saved lighting presets (noon, overcast, dusk, interior practical) that can be cycled instantly. It is the same instrument as the HDRI rig from Chapter 21, rebuilt inside the shipping renderer, and it is the single most useful thing to set up before authoring any material in an engine.</span>
       <span lang="pl">Praktycznie przybiera to formę <strong>poziomu lookdevowego</strong> — sceny wewnątrz samej gry, w której stoją kule kalibracyjne, szara i chromowana kula, tablica Macbetha i oceniane assety, oświetlone małym zestawem zapisanych presetów świetlnych (południe, zachmurzenie, zmierzch, wnętrze z lampą), przełączanych natychmiast. To dokładnie ten sam przyrząd co rig HDRI z Rozdziału 21, odbudowany wewnątrz docelowego renderera, i to najbardziej użyteczna rzecz do postawienia, zanim zaczniesz autorować jakikolwiek materiał w silniku.</span>
     </p>
+    <a class="inline-deeper" href="https://bartoszskrzypiec.github.io/raytracing-book/dodatki/dodatek-ah-displacement-subdivision.html"><span lang="en">&darr; raytracing-book, Appendix AH &mdash; what render-time displacement and subdivision actually cost, offline</span><span lang="pl">&darr; raytracing-book, Dodatek AH &mdash; ile naprawd&#281; kosztuje displacement i subdivision w czasie renderu, offline</span></a>
   </div>
 
   <div class="panel practice">

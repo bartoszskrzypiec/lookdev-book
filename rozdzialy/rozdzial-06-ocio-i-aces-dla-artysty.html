@@ -47,8 +47,8 @@
     <h2>Input Transform, working space, Output Transform</h2>
     <p>Pipeline ACES, z którym pracujesz jako lookdev artist, dzieli się na trzy etapy, z których każdy odpowiada innej części tego, co już wiesz z poprzednich rozdziałów:</p>
     <ul class="compact">
-      <li><strong>Input Transform</strong> (w starszej terminologii ACES: IDT, Input Device Transform) — dekoduje konkretne źródło (zdjęcie z kamery w LogC czy S-Log3, teksturę sRGB, HDRI) do wspólnego scene-linear ACES. To ten sam krok „decode" z diagramu w Rozdziale 3, tylko sparametryzowany pod konkretne źródło — inny Input Transform dla materiału z kamery ARRI, inny dla tekstury malowanej w Substance.</li>
-      <li><strong>Working space</strong> — ACEScg (AP1, Rozdział 4), przestrzeń, w której Arnold i RenderMan faktycznie wykonują shading, mieszanie warstw i cały light transport. To ta sama „strefa środkowa" z diagramu w Rozdziale 3 — teraz już wiesz dokładnie, w jakiej konkretnie przestrzeni ona się odbywa.</li>
+      <li><strong>Input Transform</strong> (w starszej terminologii ACES: IDT, Input Device Transform) — dekoduje konkretne źródło (zdjęcie z kamery w LogC czy S-Log3, teksturę sRGB, HDRI) do wspólnego scene-linear ACES. To ten sam krok „decode” z diagramu w Rozdziale 3, tylko sparametryzowany pod konkretne źródło — inny Input Transform dla materiału z kamery ARRI, inny dla tekstury malowanej w Substance.</li>
+      <li><strong>Working space</strong> — ACEScg (AP1, Rozdział 4), przestrzeń, w której Arnold i RenderMan faktycznie wykonują shading, mieszanie warstw i cały light transport. To ta sama „strefa środkowa” z diagramu w Rozdziale 3 — teraz już wiesz dokładnie, w jakiej konkretnie przestrzeni ona się odbywa.</li>
       <li><strong>Output Transform</strong> — złożenie dawnego RRT (Reference Rendering Transform, uniwersalna kompresja scene-linear HDR do zakresu wyświetlanego) i ODT (Output Device Transform, dopasowanie do konkretnego ekranu: Rec.709, P3-D65, HDR PQ). Pełny wywód matematyki RRT/ODT — łącznie z tym, co dokładnie zmieniło się w ACES 2.0 — jest w raytracing-book, Dodatkach L–O; tu liczy się tylko, że to właśnie ten etap decyduje, jak scene-linear liczby, na których liczysz shading, zamieniają się w piksele na Twoim ekranie.</li>
     </ul>
 
@@ -89,7 +89,7 @@
   <div class="section">
     <div class="section-eyebrow">Etap: Role</div>
     <h2>Nazwane przestrzenie, nie surowa matematyka</h2>
-    <p>Na co dzień nie wybierasz „macierzy 3×3 numer siedem" — config OCIO wystawia <span class="term-violet">nazwane przestrzenie barw</span> i <span class="term-violet">role</span>: etykiety w rodzaju „ACES2065-1", „ACEScg", „Utility – sRGB – Texture", „Output – Rec.709". Kiedy w Arnoldzie czy RenderManie ustawiasz color space dla wczytywanej tekstury, wybierasz z tej listy, nie z surowych współczynników. Role idą o krok dalej — to uniwersalne aliasy w rodzaju <code>scene_linear</code> czy <code>color_picking</code>, które wskazują na konkretną przestrzeń zdefiniowaną w configu, dzięki czemu narzędzie (albo skrypt pipeline'u) może zapytać „w jakiej przestrzeni robimy w tym show scene-linear?" bez znajomości szczegółów configu. Pełna anatomia samego pliku config — sekcje, wyszukiwanie ścieżki, dziedziczenie ról — jest w pipeline-book, Dodatku D; tu wystarczy wiedzieć, że to właśnie ta warstwa nazw stoi między Tobą a macierzami z Rozdziału 4.</p>
+    <p>Na co dzień nie wybierasz „macierzy 3×3 numer siedem” — config OCIO wystawia <span class="term-violet">nazwane przestrzenie barw</span> i <span class="term-violet">role</span>: etykiety w rodzaju „ACES2065-1”, „ACEScg”, „Utility – sRGB – Texture”, „Output – Rec.709”. Kiedy w Arnoldzie czy RenderManie ustawiasz color space dla wczytywanej tekstury, wybierasz z tej listy, nie z surowych współczynników. Role idą o krok dalej — to uniwersalne aliasy w rodzaju <code>scene_linear</code> czy <code>color_picking</code>, które wskazują na konkretną przestrzeń zdefiniowaną w configu, dzięki czemu narzędzie (albo skrypt pipeline'u) może zapytać „w jakiej przestrzeni robimy w tym show scene-linear?” bez znajomości szczegółów configu. Pełna anatomia samego pliku config — sekcje, wyszukiwanie ścieżki, dziedziczenie ról — jest w pipeline-book, Dodatku D; tu wystarczy wiedzieć, że to właśnie ta warstwa nazw stoi między Tobą a macierzami z Rozdziału 4.</p>
   </div>
 
   <div class="section">
@@ -101,7 +101,7 @@
   <div class="section">
     <div class="section-eyebrow">Etap: Najczęstszy błąd</div>
     <h2>Grading pod niewłaściwym display transformem</h2>
-    <p>Wszystkie liczby, na których operujesz podczas budowy materiału, żyją w scene-linear ACEScg — ale to, co <em>widzisz</em> na ekranie, zawsze przechodzi przez jakiś Output Transform. Jeśli lookdev artist ocenia i dostraja materiał patrząc przez transform „Rec.709 – Standard", a supervisor na sesji sign-off patrzy przez „P3-D65 – Cinema" (Dodatek I pokazuje, skąd bierze się ta różnica i jak kalibruje się oba środowiska), to obaj patrzą na dokładnie te same liczby scene-linear, ale widzą <em>różny</em> obraz — inny kontrast, inną nasyconość, czasem inaczej wyglądające highlighty. To nie jest błąd w materiale; to błąd w tym, że dwie osoby porównywały wrażenia wzrokowe wygenerowane przez dwa różne transformy. Praktyczna zasada: sign-off (Rozdział 1) zawsze odbywa się pod dokładnie tym Output Transformem, jaki zobaczy finalny odbiorca — jeśli to kino, oceniasz pod transformem kinowym od samego początku procesu build, nie dopiero na końcu.</p>
+    <p>Wszystkie liczby, na których operujesz podczas budowy materiału, żyją w scene-linear ACEScg — ale to, co <em>widzisz</em> na ekranie, zawsze przechodzi przez jakiś Output Transform. Jeśli lookdev artist ocenia i dostraja materiał patrząc przez transform „Rec.709 – Standard”, a supervisor na sesji sign-off patrzy przez „P3-D65 – Cinema” (Dodatek I pokazuje, skąd bierze się ta różnica i jak kalibruje się oba środowiska), to obaj patrzą na dokładnie te same liczby scene-linear, ale widzą <em>różny</em> obraz — inny kontrast, inną nasyconość, czasem inaczej wyglądające highlighty. To nie jest błąd w materiale; to błąd w tym, że dwie osoby porównywały wrażenia wzrokowe wygenerowane przez dwa różne transformy. Praktyczna zasada: sign-off (Rozdział 1) zawsze odbywa się pod dokładnie tym Output Transformem, jaki zobaczy finalny odbiorca — jeśli to kino, oceniasz pod transformem kinowym od samego początku procesu build, nie dopiero na końcu.</p>
   </div>
 
   <div class="panel glossary">
@@ -122,7 +122,7 @@
 
   <div class="next">
     <div class="panel-label" style="color:var(--violet);">Co dalej</div>
-    <p>Cała Część II odpowiedziała na pytanie „jak liczby w ogóle docierają poprawnie do ekranu". Część III zaczyna zadawać inne pytanie: skoro wiesz już, że patrzysz na poprawny obraz, jak świadomie go zmienić — podnieść ekspozycję, przesunąć czerń, dodać kontrast — nie psując przy tym niczego, co Część II tak starannie poskładała. Rozdział 7 zaczyna od trzech najbardziej podstawowych operatorów: offsetu, gainu i gammy.</p>
+    <p>Cała Część II odpowiedziała na pytanie „jak liczby w ogóle docierają poprawnie do ekranu”. Część III zaczyna zadawać inne pytanie: skoro wiesz już, że patrzysz na poprawny obraz, jak świadomie go zmienić — podnieść ekspozycję, przesunąć czerń, dodać kontrast — nie psując przy tym niczego, co Część II tak starannie poskładała. Rozdział 7 zaczyna od trzech najbardziej podstawowych operatorów: offsetu, gainu i gammy.</p>
   </div>
 
 <div class="site-nav chapter-nav">

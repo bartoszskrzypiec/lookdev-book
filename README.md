@@ -5,10 +5,11 @@ technicznych artystach — nie o programistach piszących shader od zera, tylko 
 zrozumieć matematykę i rzemiosło stojące za każdym suwakiem: gamma, grade, offset, ASC CDL,
 saturacja, IOR, subsurface scattering, aż po ocenę looku pod kalibrowanym oświetleniem.
 
-24 rozdziały główne prowadzą od tego, czym w ogóle jest lookdev, przez linear light i przestrzenie
+29 rozdziałów głównych prowadzi od tego, czym w ogóle jest lookdev, przez linear light i przestrzenie
 barw, pełną matematykę gradingu, tekstury jako dane wejściowe, budowę shadera produkcyjnego
 (aiStandardSurface / PxrSurface), konkretne recepty materiałowe (skóra, metal, szkło, tkaniny,
-włosy), aż po oświetlenie i ocenę looku. Dodatki A–W rozwijają wybrane tematy głębiej niż pozwala na
+włosy), oświetlenie i ocenę looku, aż po Część VIII — ten sam warsztat w silnikach czasu
+rzeczywistego (Unreal Engine 5, RED Engine, realia gamedevu). Dodatki A–W rozwijają wybrane tematy głębiej niż pozwala na
 to rozdział główny — pełne wyprowadzenia macierzy przestrzeni barw, referencje Arnold/RenderMan
 parametr po parametrze, kalibracja materiałów według pomiarów. Osobny pomocnik obliczeniowy prowadzi
 krok po kroku przez liczenie transformacji kolorystycznych ręcznie.
@@ -19,8 +20,8 @@ Trzecia książka w trylogii, siostrzana wobec
 dokładnie tego samego systemu wizualnego i linkuje do obu tam, gdzie temat już ma głębszy wywód
 (ACES, OCIO, SSS, displacement, MaterialX/OSL i inne).
 
-**Wersja live:** jeszcze nie opublikowana — repozytorium GitHub i GitHub Pages nie zostały jeszcze
-utworzone.
+**Wersja live:** https://bartoszskrzypiec.github.io/lookdev-book/ — publikacja idzie z gałęzi
+`main` przez GitHub Pages (Settings → Pages → Deploy from a branch → `main` / `/(root)`).
 
 ## Jak to działa
 
@@ -31,11 +32,16 @@ To są czyste, statyczne pliki HTML z inline'owanym SVG i wspólnym arkuszem sty
 ```
 index.html              — spis treści
 matematyka/              — primer "Zanim zaczniesz": potęgi, logarytmy, macierze 3×3
-rozdzialy/                — rozdziały główne 1–24
+rozdzialy/                — rozdziały główne 1–29 (R.24–28 to część o realtime/gamedevie)
 dodatki/                 — dodatki A–W, każdy rozwija konkretny rozdział lub temat
 pomocnik/                — pomocnik obliczeniowy: policz transformacje kolorystyczne ręcznie
 assets/style.css         — wspólny dark theme dla wszystkich stron (dziedziczony z raytracing-book)
 ```
+
+Część stron jest **dwujęzyczna (EN/PL)** — przełącznik języka w prawym górnym rogu, wybór zapisuje
+się w przeglądarce i trzyma się przy przechodzeniu między stronami. Obie wersje językowe siedzą w
+tym samym pliku HTML, więc działa to także bez JavaScriptu. Dziś dwujęzyczne są: Rozdział 14 i cała
+Część VIII (R.24–28); reszta książki jest póki co wyłącznie po polsku.
 
 ## Status projektu
 

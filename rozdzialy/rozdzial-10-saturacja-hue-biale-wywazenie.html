@@ -31,7 +31,7 @@
     <div class="panel-label">TL;DR</div>
     <ul>
       <li><span class="term-amber">Saturacja</span> (wzór poznany w Rozdziale 8) to w pełni zapisywalna macierz 3×3 zbudowana z luma — przy sat=0 każdy kolor ląduje na tej samej szarości, przy sat=1 nic się nie zmienia, przy sat&gt;1 różnice między kanałami rosną ponad oryginał.</li>
-      <li><span class="term-cyan">Obrót barwy</span> (hue rotation) to inna operacja niż saturacja — nie zmienia „ile koloru", tylko „który kolor", obracając wektor chrominancji o kąt, przy zachowanej luma.</li>
+      <li><span class="term-cyan">Obrót barwy</span> (hue rotation) to inna operacja niż saturacja — nie zmienia „ile koloru”, tylko „który kolor”, obracając wektor chrominancji o kąt, przy zachowanej luma.</li>
       <li><span class="term-violet">Białe wyważenie</span> to nie osobny, magiczny suwak — w najprostszej postaci to korekta per kanał, która sprawia, że wybrany neutralny punkt (np. karta szara) staje się dokładnie (1,1,1); pełny wywód przez adaptację chromatyczną (von Kries/Bradford) jest w Dodatku E.</li>
     </ul>
   </div>
@@ -53,7 +53,7 @@
       <div class="result">Suma każdego wiersza = 1,0000 — sprawdzenie poprawności macierzy, dokładnie jak przy macierzy zmiany przestrzeni barw w Rozdziale 4</div>
       <div class="check">Przy sat=0 wszystkie trzy wiersze stają się identyczne: [0,2126; 0,7152; 0,0722] — czyli każdy kanał wyjściowy równa się luma, dokładnie definicja pełnego odbarwienia. Przy sat=1 macierz redukuje się do macierzy jednostkowej — brak zmiany.</div>
     </div>
-    <p>To właśnie dlatego przesadzona saturacja najpierw psuje skórę: karnacja ma stosunkowo bliskie sobie wartości R, G i B (mała odległość od luma w porównaniu np. z nasyconą czerwienią ubrania), więc każdy dodatkowy procent sat wyolbrzymia tę niewielką różnicę nieproporcjonalnie mocno względem tego, jak subtelna zmiana jest jeszcze wiarygodna fizjologicznie — granica, za którą skóra zaczyna wyglądać poparzona słońcem albo chorobliwie czerwona, jest bliżej niż podpowiada intuicja patrząca tylko na jedną liczbę „Saturation".</p>
+    <p>To właśnie dlatego przesadzona saturacja najpierw psuje skórę: karnacja ma stosunkowo bliskie sobie wartości R, G i B (mała odległość od luma w porównaniu np. z nasyconą czerwienią ubrania), więc każdy dodatkowy procent sat wyolbrzymia tę niewielką różnicę nieproporcjonalnie mocno względem tego, jak subtelna zmiana jest jeszcze wiarygodna fizjologicznie — granica, za którą skóra zaczyna wyglądać poparzona słońcem albo chorobliwie czerwona, jest bliżej niż podpowiada intuicja patrząca tylko na jedną liczbę „Saturation”.</p>
   </div>
 
   <div class="section">
@@ -61,7 +61,7 @@
     <h2>Obrót barwy — zmienia który kolor, nie ile koloru</h2>
     <p>Saturacja skaluje odległość koloru od luma, ale nie zmienia <em>kierunku</em> tej odległości — czerwony pozostaje czerwony, tylko mniej lub bardziej intensywny. <span class="term-cyan">Obrót barwy</span> robi coś przeciwnego: zmienia kierunek, zachowując odległość (i luma) bez zmian. Najwygodniej myśleć o tym w przestrzeni, która jawnie oddziela luma od <span class="term-violet">chrominancji</span> — na przykład YCbCr, gdzie Y to luma (ten sam wzór co wyżej), a Cb i Cr to dwuwymiarowa płaszczyzna koloru, niezależna od jasności. Obrót barwy o kąt θ to zwykły obrót 2D dokładnie tej płaszczyzny:</p>
     <div class="formula">Cb' = Cb·cos(θ) − Cr·sin(θ)<br>Cr' = Cb·sin(θ) + Cr·cos(θ)<span class="sub">θ — kąt obrotu barwy; Y (luma) nie zmienia się w ogóle — to właśnie sprawia, że hue rotation, poprawnie zaimplementowany, nie zmienia postrzeganej jasności obrazu, tylko jego odcień</span></div>
-    <p>Część narzędzi (klasyczne „Hue" w edytorach zdjęć w rodzaju Photoshopa) implementuje ten sam efekt inaczej — jako przesunięcie kąta H w przestrzeni HSV/HSL, gdzie hue to wprost kąt na kole barw, a nie obrót w płaszczyźnie chrominancji YCbCr. Obie implementacje dążą do tego samego efektu wizualnego, ale nie są matematycznie identyczne — kolejny przykład (po „lift" z Rozdziału 7) tego, że ta sama nazwa parametru w dwóch programach nie gwarantuje identycznego wzoru pod spodem.</p>
+    <p>Część narzędzi (klasyczne „Hue” w edytorach zdjęć w rodzaju Photoshopa) implementuje ten sam efekt inaczej — jako przesunięcie kąta H w przestrzeni HSV/HSL, gdzie hue to wprost kąt na kole barw, a nie obrót w płaszczyźnie chrominancji YCbCr. Obie implementacje dążą do tego samego efektu wizualnego, ale nie są matematycznie identyczne — kolejny przykład (po „lift” z Rozdziału 7) tego, że ta sama nazwa parametru w dwóch programach nie gwarantuje identycznego wzoru pod spodem.</p>
   </div>
 
   <div class="section">
@@ -84,7 +84,7 @@
   <div class="section">
     <div class="section-eyebrow">Etap: W praktyce</div>
     <h2>Trzy operatory, jeden node</h2>
-    <p>Saturacja i obrót barwy niemal zawsze siedzą w tym samym node'zie co offset/gain/gamma z Rozdziału 7 — <code>aiColorCorrect</code> w Arnoldzie wystawia wprost parametry <code>saturation</code> i <code>hue_shift</code> obok exposure i kontrastu z Rozdziału 9; <code>PxrColorCorrect</code> w RenderManie ma bezpośrednie odpowiedniki. Białe wyważenie bywa potraktowane osobno, czasem jako parametr „temperature/tint" bliższy językowi fotografii niż surowym gainom kanałów — Dodatek E pokazuje, jak taki parametr temperaturowy przekłada się z powrotem na dokładnie te same gainy albo macierze, które poznałeś w tym rozdziale.</p>
+    <p>Saturacja i obrót barwy niemal zawsze siedzą w tym samym node'zie co offset/gain/gamma z Rozdziału 7 — <code>aiColorCorrect</code> w Arnoldzie wystawia wprost parametry <code>saturation</code> i <code>hue_shift</code> obok exposure i kontrastu z Rozdziału 9; <code>PxrColorCorrect</code> w RenderManie ma bezpośrednie odpowiedniki. Białe wyważenie bywa potraktowane osobno, czasem jako parametr „temperature/tint” bliższy językowi fotografii niż surowym gainom kanałów — Dodatek E pokazuje, jak taki parametr temperaturowy przekłada się z powrotem na dokładnie te same gainy albo macierze, które poznałeś w tym rozdziale.</p>
   </div>
 
   <div class="panel glossary">
