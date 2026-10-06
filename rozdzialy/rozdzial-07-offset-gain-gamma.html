@@ -37,21 +37,21 @@
   </div>
 
   <div class="section">
-    <p>Każdy z trzech suwaków w node'zie korekcji koloru — offset, gain, gamma — na pierwszy rzut oka robi to samo: „rozjaśnia" albo „przyciemnia" obraz. Różnica ujawnia się dopiero, kiedy spojrzysz, <em>które</em> wartości zmieniają się najbardziej. Te trzy operatory nie są zamiennikami tego samego efektu — to trzy różne narzędzia, każde do innego zadania, i mylenie ich (np. próba rozjaśnienia cieni gainem zamiast offsetem) to jeden z najczęstszych błędów, jakie popełnia ktoś, kto grading dopiero zaczyna.</p>
+    <p>Każdy z trzech suwaków w node'zie korekcji koloru — offset, gain, gamma — na pierwszy rzut oka robi to samo: „rozjaśnia” albo „przyciemnia” obraz. Różnica ujawnia się dopiero, kiedy spojrzysz, <em>które</em> wartości zmieniają się najbardziej. Te trzy operatory nie są zamiennikami tego samego efektu — to trzy różne narzędzia, każde do innego zadania, i mylenie ich (np. próba rozjaśnienia cieni gainem zamiast offsetem) to jeden z najczęstszych błędów, jakie popełnia ktoś, kto grading dopiero zaczyna.</p>
   </div>
 
   <div class="section">
     <div class="section-eyebrow">Etap: Offset</div>
     <h2>Offset — ta sama stała zmiana wszędzie</h2>
     <div class="formula">V' = V + offset<span class="sub">V — wartość wejściowa; offset — stała, dodawana identycznie do każdego piksela niezależnie od jego jasności; V' — wartość wyjściowa</span></div>
-    <p>Offset dodaje (lub odejmuje, przy wartości ujemnej) tę samą, stałą liczbę do każdej wartości w obrazie. Ponieważ to zmiana <em>absolutna</em>, nie proporcjonalna, jej efekt zależy od tego, jak mała była wartość bazowa: dodanie 0,1 do czerni (0,0 → 0,1) to nieskończona zmiana względna — z niczego robi się coś — podczas gdy dodanie 0,1 do jasnej wartości (0,9 → 1,0) to zmiana relatywnie niewielka. Właśnie dlatego offset najsilniej „unosi" cienie: klasyczny efekt „mgły" albo „wypłowiałej czerni" w gradingu to niemal zawsze dodatni offset. Ma też wadę, o której łatwo zapomnieć: przy dodatnim offsecie jasne wartości mogą przekroczyć 1,0 — w przestrzeni display-referred oznacza to twarde obcięcie (clipping) najjaśniejszych partii, chyba że pracujesz w nieograniczonym scene-linear HDR (Rozdział 9 wraca do tego rozróżnienia).</p>
+    <p>Offset dodaje (lub odejmuje, przy wartości ujemnej) tę samą, stałą liczbę do każdej wartości w obrazie. Ponieważ to zmiana <em>absolutna</em>, nie proporcjonalna, jej efekt zależy od tego, jak mała była wartość bazowa: dodanie 0,1 do czerni (0,0 → 0,1) to nieskończona zmiana względna — z niczego robi się coś — podczas gdy dodanie 0,1 do jasnej wartości (0,9 → 1,0) to zmiana relatywnie niewielka. Właśnie dlatego offset najsilniej „unosi” cienie: klasyczny efekt „mgły” albo „wypłowiałej czerni” w gradingu to niemal zawsze dodatni offset. Ma też wadę, o której łatwo zapomnieć: przy dodatnim offsecie jasne wartości mogą przekroczyć 1,0 — w przestrzeni display-referred oznacza to twarde obcięcie (clipping) najjaśniejszych partii, chyba że pracujesz w nieograniczonym scene-linear HDR (Rozdział 9 wraca do tego rozróżnienia).</p>
   </div>
 
   <div class="section">
     <div class="section-eyebrow">Etap: Gain</div>
     <h2>Gain — skalowanie proporcjonalne od zera</h2>
     <div class="formula">V' = V × gain<span class="sub">gain — mnożnik; przy gain = 1 obraz się nie zmienia, przy gain &gt; 1 rozjaśnia, przy gain &lt; 1 przyciemnia</span></div>
-    <p>Gain mnoży każdą wartość przez tę samą stałą. W przeciwieństwie do offsetu, czerń zostaje czernią niezależnie od wartości gaina: 0 × dowolna liczba = 0. To właśnie sprawia, że gain to matematycznie ten sam operator co ekspozycja mierzona w stopach (Rozdział 9 pokazuje, że gain = 2^stopnie) — mnożenie, nie dodawanie, jest dokładnie tym mechanizmem, jaki opisuje liniowość radiometryczna z Rozdziału 3. Zmiana bezwzględna rośnie wraz z jasnością bazową: przy gain = 1,3 wartość 0,8 zmienia się o 0,24, a wartość 0,2 zmienia się tylko o 0,06 — gain „rozciąga" różnice w jasnych partiach mocniej niż w cieniach, odwrotnie niż offset.</p>
+    <p>Gain mnoży każdą wartość przez tę samą stałą. W przeciwieństwie do offsetu, czerń zostaje czernią niezależnie od wartości gaina: 0 × dowolna liczba = 0. To właśnie sprawia, że gain to matematycznie ten sam operator co ekspozycja mierzona w stopach (Rozdział 9 pokazuje, że gain = 2^stopnie) — mnożenie, nie dodawanie, jest dokładnie tym mechanizmem, jaki opisuje liniowość radiometryczna z Rozdziału 3. Zmiana bezwzględna rośnie wraz z jasnością bazową: przy gain = 1,3 wartość 0,8 zmienia się o 0,24, a wartość 0,2 zmienia się tylko o 0,06 — gain „rozciąga” różnice w jasnych partiach mocniej niż w cieniach, odwrotnie niż offset.</p>
   </div>
 
   <div class="section">
@@ -105,7 +105,7 @@
   <div class="section">
     <div class="section-eyebrow">Etap: W praktyce</div>
     <h2>Gdzie te operatory żyją w Arnoldzie i RenderManie</h2>
-    <p>Node'y korekcji koloru w obu rendererach — <code>aiColorCorrect</code> w Arnoldzie, <code>PxrColorCorrect</code> w RenderManie — wystawiają dokładnie tę trójkę jako osobne parametry, obok kontrastu i saturacji z Rozdziałów 9–10. Warto wiedzieć, że narzędzia kolorystów (np. trzy-kołowy „Lift / Gamma / Gain" w DaVinci Resolve) czasem implementują „lift" jako offset <em>tłumiony</em> w stronę bieli, a nie czysty, stały offset opisany wyżej — dokładny kształt tego tłumienia różni się między narzędziami i nie jest jednolicie ustandaryzowany. Ustandaryzowana, w pełni jawna wersja tej samej trójki operatorów, w ściśle określonej kolejności, istnieje jednak — to właśnie ASC CDL, temat następnego rozdziału.</p>
+    <p>Node'y korekcji koloru w obu rendererach — <code>aiColorCorrect</code> w Arnoldzie, <code>PxrColorCorrect</code> w RenderManie — wystawiają dokładnie tę trójkę jako osobne parametry, obok kontrastu i saturacji z Rozdziałów 9–10. Warto wiedzieć, że narzędzia kolorystów (np. trzy-kołowy „Lift / Gamma / Gain” w DaVinci Resolve) czasem implementują „lift” jako offset <em>tłumiony</em> w stronę bieli, a nie czysty, stały offset opisany wyżej — dokładny kształt tego tłumienia różni się między narzędziami i nie jest jednolicie ustandaryzowany. Ustandaryzowana, w pełni jawna wersja tej samej trójki operatorów, w ściśle określonej kolejności, istnieje jednak — to właśnie ASC CDL, temat następnego rozdziału.</p>
   </div>
 
   <div class="panel glossary">
@@ -124,7 +124,7 @@
 
   <div class="next">
     <div class="panel-label" style="color:var(--violet);">Co dalej</div>
-    <p>Trzy osobne operatory to dopiero połowa historii — bez ustalonej kolejności i bez jednego wspólnego formatu zapisu, dwóch kolorystów opisujących „ten sam" grading offsetem, gainem i gammą wcale nie muszą uzyskać identycznego wyniku. Rozdział 8 pokazuje ASC CDL: standard, który zamyka dokładnie tę trójkę w jeden, jednoznaczny wzór wymieniany między studiami na całym świecie.</p>
+    <p>Trzy osobne operatory to dopiero połowa historii — bez ustalonej kolejności i bez jednego wspólnego formatu zapisu, dwóch kolorystów opisujących „ten sam” grading offsetem, gainem i gammą wcale nie muszą uzyskać identycznego wyniku. Rozdział 8 pokazuje ASC CDL: standard, który zamyka dokładnie tę trójkę w jeden, jednoznaczny wzór wymieniany między studiami na całym świecie.</p>
   </div>
 
 <div class="site-nav chapter-nav">

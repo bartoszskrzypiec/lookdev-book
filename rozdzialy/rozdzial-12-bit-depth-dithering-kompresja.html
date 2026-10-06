@@ -30,7 +30,7 @@
   <div class="panel">
     <div class="panel-label">TL;DR</div>
     <ul>
-      <li>8-bitowa tekstura sRGB rozpada się na pasy w cieniach nie dlatego, że tam „jest mniej kroków" — tylko dlatego, że krzywa dekodowania sRGB→linear ściska wiele różnych wartości wejściowych w bardzo wąski zakres wyjściowy, a każde kolejne mnożenie w liniowym shadingu tę różnicę uwidacznia.</li>
+      <li>8-bitowa tekstura sRGB rozpada się na pasy w cieniach nie dlatego, że tam „jest mniej kroków” — tylko dlatego, że krzywa dekodowania sRGB→linear ściska wiele różnych wartości wejściowych w bardzo wąski zakres wyjściowy, a każde kolejne mnożenie w liniowym shadingu tę różnicę uwidacznia.</li>
       <li>Mapy <span class="term-cyan">danych</span> (displacement, promień SSS, czasem roughness) potrzebują 16-bit albo float. Proste albedo zwykle może zostać 8-bitowe, bo jest ostatnim mnożeniem w łańcuchu, nie pośrednim krokiem.</li>
       <li><span class="term-violet">Dithering</span> — kontrolowany szum dodany tuż przed kwantyzacją do niższego bit depth — to konkretne, techniczne narzędzie przeciw pasom, nie kosmetyka.</li>
     </ul>
@@ -39,7 +39,7 @@
   <div class="section">
     <div class="section-eyebrow">Etap: Mechanizm</div>
     <h2>Dlaczego akurat cienie</h2>
-    <p>Intuicja „sRGB daje cieniom więcej kroków, więc jest lepiej" jest tylko połową prawdy i nie tłumaczy, dlaczego banding w ogóle się pojawia. Prawdziwy mechanizm jest inny: krzywa dekodowania sRGB→linear (w przybliżeniu potęga ~2,2) jest wypukła — bierze <em>szeroki</em> zakres wejściowych wartości 8-bitowych blisko zera i ściska je w <em>wąski</em> zakres wynikowy, bliski zera. Jeśli wynik tej dekodyzacji zostanie z powrotem zapisany albo przetworzony przy niskim bit depth, wiele różnych wartości wejściowych ląduje w tym samym, jednym „kubełku" wyjściowym — informacja o gradiencie w cieniach znika, zanim jeszcze zacznie się shading. Przy gamma ≈2,2 wartość wejściowa 8-bit musi sięgnąć ~21/255, zanim dekodowany wynik w ogóle przestanie być zerem — wszystko poniżej tego progu koliduje w jeden punkt.</p>
+    <p>Intuicja „sRGB daje cieniom więcej kroków, więc jest lepiej” jest tylko połową prawdy i nie tłumaczy, dlaczego banding w ogóle się pojawia. Prawdziwy mechanizm jest inny: krzywa dekodowania sRGB→linear (w przybliżeniu potęga ~2,2) jest wypukła — bierze <em>szeroki</em> zakres wejściowych wartości 8-bitowych blisko zera i ściska je w <em>wąski</em> zakres wynikowy, bliski zera. Jeśli wynik tej dekodyzacji zostanie z powrotem zapisany albo przetworzony przy niskim bit depth, wiele różnych wartości wejściowych ląduje w tym samym, jednym „kubełku” wyjściowym — informacja o gradiencie w cieniach znika, zanim jeszcze zacznie się shading. Przy gamma ≈2,2 wartość wejściowa 8-bit musi sięgnąć ~21/255, zanim dekodowany wynik w ogóle przestanie być zerem — wszystko poniżej tego progu koliduje w jeden punkt.</p>
     <div class="worked">
       <div class="wlabel">Policzone: ile wartości 8-bit koliduje poniżej progu dekodyzacji</div>
       <div class="step"><span class="k">Próg</span> — przy gamma ≈2,2, wejściowe u8 = 21 (0,082) to pierwsza wartość dająca niezerowy wynik po dekodyzacji</div>

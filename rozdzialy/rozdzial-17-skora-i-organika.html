@@ -61,7 +61,7 @@
       </table>
     </div>
     <p class="table-caption">Krytyczne niedopasowanie domyślnych wartości: Arnold od lat domyślnie liczy <code>randomwalk</code> — niemal każdy istniejący materiał SSS w Arnoldzie powstał właśnie na nim. PxrSurface domyślnie startuje z Jensen Dipole, najsłabszym przybliżeniem z całej listy.</p>
-    <p>Jeśli materiał w Arnoldzie używał <code>randomwalk</code>, uczciwym odpowiednikiem w PxrSurface jest model Path Traced, nie dipol, od którego PxrSurface zaczyna. Przybliżenia dipolowe trzymają się dobrze na grubych, zaokrąglonych formach i zawodzą dokładnie tam, gdzie geometria robi się cienka — uszy, nozdrza, palce, powieki (dokładnie ta sama granica cienkiej geometrii, o której mówi raytracing-book, Dodatek AG). To wyjaśnia często spotykany objaw: „na policzku wygląda dobrze, na uszach gumowato" — to nie kwestia strojenia koloru, tylko wybranego modelu.</p>
+    <p>Jeśli materiał w Arnoldzie używał <code>randomwalk</code>, uczciwym odpowiednikiem w PxrSurface jest model Path Traced, nie dipol, od którego PxrSurface zaczyna. Przybliżenia dipolowe trzymają się dobrze na grubych, zaokrąglonych formach i zawodzą dokładnie tam, gdzie geometria robi się cienka — uszy, nozdrza, palce, powieki (dokładnie ta sama granica cienkiej geometrii, o której mówi raytracing-book, Dodatek AG). To wyjaśnia często spotykany objaw: „na policzku wygląda dobrze, na uszach gumowato” — to nie kwestia strojenia koloru, tylko wybranego modelu.</p>
     <p>Zastrzeżenie działające w drugą stronę: Mean Free Path Distance jest zaprojektowany pod modele dipolowe. W trybie Path Traced dokumentacja RenderMana odradza poleganie na nim — lepiej sterować wyglądem przez Subsurface Color i Mean Free Path Color. Zmiana modelu zmienia więc nie tylko jakość, ale i to, <em>które</em> parametry w ogóle mają znaczenie.</p>
   </div>
 
@@ -91,7 +91,7 @@
   <div class="section">
     <div class="section-eyebrow">Etap: Detal</div>
     <h2>Pieprzyki i pory: dlaczego regularność zabija iluzję</h2>
-    <p>Skóra ma detal w dwóch różnych skalach, i oba muszą być nieregularne, żeby oko ich nie złapało jako wzorca. Pory to detal mikro — zwykle bump albo displacement (Rozdział 20) z teksturą szumu, nie geometria modelowana ręcznie; kluczowe jest zróżnicowanie gęstości i głębokości między obszarami (T-strefa twarzy ma inne pory niż policzki), nie jednolita siatka. Pieprzyki i przebarwienia to detal makro — jeśli są rozłożone regularnie (siatka, powtarzający się wzór z teksturowej płytki) albo mają identyczny rozmiar i kolor, oko wyłapuje powtórzenie w ułamku sekundy, nawet jeśli widz nie potrafi nazwać, co konkretnie go razi. Praktyczna technika: losowa wariacja skali, koloru i gęstości per instancję (maska proceduralna albo ręcznie malowana, nigdy jedna płytka powielona bez zmian), z rzadkimi, większymi „akcentami" rozbijającymi jednostajność drobnego szumu — dokładnie ta sama zasada nieregularności, która w Rozdziale 19 wraca przy rozkładzie włosów.</p>
+    <p>Skóra ma detal w dwóch różnych skalach, i oba muszą być nieregularne, żeby oko ich nie złapało jako wzorca. Pory to detal mikro — zwykle bump albo displacement (Rozdział 20) z teksturą szumu, nie geometria modelowana ręcznie; kluczowe jest zróżnicowanie gęstości i głębokości między obszarami (T-strefa twarzy ma inne pory niż policzki), nie jednolita siatka. Pieprzyki i przebarwienia to detal makro — jeśli są rozłożone regularnie (siatka, powtarzający się wzór z teksturowej płytki) albo mają identyczny rozmiar i kolor, oko wyłapuje powtórzenie w ułamku sekundy, nawet jeśli widz nie potrafi nazwać, co konkretnie go razi. Praktyczna technika: losowa wariacja skali, koloru i gęstości per instancję (maska proceduralna albo ręcznie malowana, nigdy jedna płytka powielona bez zmian), z rzadkimi, większymi „akcentami” rozbijającymi jednostajność drobnego szumu — dokładnie ta sama zasada nieregularności, która w Rozdziale 19 wraca przy rozkładzie włosów.</p>
   </div>
 
   <div class="worked">
@@ -124,7 +124,7 @@
 
   <div class="next">
     <div class="panel-label" style="color:var(--violet);">Co dalej</div>
-    <p>Skóra była materiałem organicznym. Rozdział 18 wraca do materiałów twardych — metal z bliska, szkło i ciecze — i pokazuje, że anizotropia, transmisja i grubość ośrodka łamią to samo założenie „gładkiej powierzchni" na trzy różne sposoby.</p>
+    <p>Skóra była materiałem organicznym. Rozdział 18 wraca do materiałów twardych — metal z bliska, szkło i ciecze — i pokazuje, że anizotropia, transmisja i grubość ośrodka łamią to samo założenie „gładkiej powierzchni” na trzy różne sposoby.</p>
   </div>
 
 <div class="site-nav chapter-nav">

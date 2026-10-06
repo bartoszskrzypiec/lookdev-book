@@ -160,7 +160,7 @@
     </p>
     <p>
       <span lang="en">The fix is to convert the lost normal length into extra roughness at each mip level — the classic Toksvig-style variance-to-roughness mapping. In Unreal it is a texture setting: point a roughness texture at its normal map as a composite texture, and each roughness mip is generated with that correction applied. Turning it on for every roughness map that has a matching normal map is close to free and removes a whole class of "it shimmers in motion" notes.</span>
-      <span lang="pl">Lekarstwem jest zamiana utraconej długości normalnej na dodatkowy roughness na każdym poziomie mipa — klasyczne odwzorowanie wariancji na roughness w stylu Toksviga. W Unrealu to ustawienie tekstury: wskaż teksturze roughness jej mapę normalnych jako composite texture, a każdy mip roughness powstanie z nałożoną korektą. Włączenie tego dla każdej mapy roughness mającej odpowiadającą mapę normalnych jest niemal darmowe i usuwa całą klasę uwag „migocze w ruchu".</span>
+      <span lang="pl">Lekarstwem jest zamiana utraconej długości normalnej na dodatkowy roughness na każdym poziomie mipa — klasyczne odwzorowanie wariancji na roughness w stylu Toksviga. W Unrealu to ustawienie tekstury: wskaż teksturze roughness jej mapę normalnych jako composite texture, a każdy mip roughness powstanie z nałożoną korektą. Włączenie tego dla każdej mapy roughness mającej odpowiadającą mapę normalnych jest niemal darmowe i usuwa całą klasę uwag „migocze w ruchu”.</span>
     </p>
     <a class="inline-deeper" href="https://bartoszskrzypiec.github.io/raytracing-book/dodatki/dodatek-g-mipmapping.html"><span lang="en">&darr; raytracing-book, Appendix G &mdash; mipmapping and texture filtering: why the level is chosen the way it is</span><span lang="pl">&darr; raytracing-book, Dodatek G &mdash; mipmapping i filtrowanie tekstur: dlaczego poziom wybierany jest w&#322;a&#347;nie tak</span></a>
   </div>
@@ -180,7 +180,7 @@
 
   <div class="section">
     <div class="section-eyebrow"><span lang="en">Stage: The budget</span><span lang="pl">Etap: Budżet</span></div>
-    <h2><span lang="en">Texel density, streaming, and what "4K textures" costs</span><span lang="pl">Gęstość tekseli, streaming i ile kosztują „tekstury 4K"</span></h2>
+    <h2><span lang="en">Texel density, streaming, and what "4K textures" costs</span><span lang="pl">Gęstość tekseli, streaming i ile kosztują „tekstury 4K”</span></h2>
     <p>
       <span lang="en">In VFX, UDIM tiles let an asset carry as much texture as it needs, and Appendix T's budget is about disk and load time. In a game the same asset shares a fixed pool of video memory with everything else on screen, so texture resolution is expressed as <strong>texel density</strong> — texels per centimetre of surface — and agreed project-wide, so that a wall and a prop next to it resolve to the same detail rather than one looking soft beside the other.</span>
       <span lang="pl">W VFX kafle UDIM pozwalają assetowi nieść tyle tekstur, ile potrzebuje, a budżet z Dodatku T dotyczy dysku i czasu wczytywania. W grze ten sam asset dzieli stałą pulę pamięci wideo ze wszystkim innym na ekranie, więc rozdzielczość tekstur wyraża się jako <strong>gęstość tekseli</strong> — teksele na centymetr powierzchni — i uzgadnia w skali projektu, żeby ściana i stojący obok niej rekwizyt rozdzielały się do tego samego detalu, zamiast żeby jedno wyglądało miękko obok drugiego.</span>

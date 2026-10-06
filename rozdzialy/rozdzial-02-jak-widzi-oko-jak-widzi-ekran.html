@@ -37,7 +37,7 @@
   </div>
 
   <div class="section">
-    <p>Wyjdź w słoneczny dzień z ciemnego pomieszczenia i przez chwilę nic nie widzisz — za jasno. Wejdź do kina w środku seansu i przez chwilę nie widzisz wolnych miejsc — za ciemno. W obu przypadkach po kilkudziesięciu sekundach do kilkunastu minut widzisz normalnie. To nie jest metafora ani ciekawostka biologiczna — to dokładnie ten sam mechanizm, który sprawia, że plik tekstury zapisany „na oko" w Photoshopie wygląda inaczej niż powinien w linear light workflow renderera (Rozdział 3), i że ten sam materiał wygląda inaczej pod HDRI ze studia niż pod ostrym słońcem (Rozdział 21). Zanim zajmiemy się matematyką, która z tego wynika, warto zobaczyć problem u źródła.</p>
+    <p>Wyjdź w słoneczny dzień z ciemnego pomieszczenia i przez chwilę nic nie widzisz — za jasno. Wejdź do kina w środku seansu i przez chwilę nie widzisz wolnych miejsc — za ciemno. W obu przypadkach po kilkudziesięciu sekundach do kilkunastu minut widzisz normalnie. To nie jest metafora ani ciekawostka biologiczna — to dokładnie ten sam mechanizm, który sprawia, że plik tekstury zapisany „na oko” w Photoshopie wygląda inaczej niż powinien w linear light workflow renderera (Rozdział 3), i że ten sam materiał wygląda inaczej pod HDRI ze studia niż pod ostrym słońcem (Rozdział 21). Zanim zajmiemy się matematyką, która z tego wynika, warto zobaczyć problem u źródła.</p>
   </div>
 
   <div class="section">
@@ -61,7 +61,7 @@
   <div class="section">
     <div class="section-eyebrow">Etap: Dynamic range</div>
     <h2>Cztery różne zakresy, jedna wspólna jednostka</h2>
-    <p>Zanim mówić o zakresach liczbowo, potrzebna jest jednostka. W kolorystyce i fotografii tą jednostką jest <span class="term-amber">stop</span> — jeden stop to podwojenie (albo połowa) ilości światła. Stopy nie dodają się jak procenty, tylko jak potęgi dwójki: różnica dwóch stopów to nie „dwa razy większa różnica" niż jeden stop, tylko czterokrotna różnica jasności. Do tej jednostki wrócimy szczegółowo w Rozdziale 9 — tu wystarczy, żeby porównać cztery zakresy na wspólnej skali:</p>
+    <p>Zanim mówić o zakresach liczbowo, potrzebna jest jednostka. W kolorystyce i fotografii tą jednostką jest <span class="term-amber">stop</span> — jeden stop to podwojenie (albo połowa) ilości światła. Stopy nie dodają się jak procenty, tylko jak potęgi dwójki: różnica dwóch stopów to nie „dwa razy większa różnica” niż jeden stop, tylko czterokrotna różnica jasności. Do tej jednostki wrócimy szczegółowo w Rozdziale 9 — tu wystarczy, żeby porównać cztery zakresy na wspólnej skali:</p>
     <ul class="compact">
       <li><strong>Scena rzeczywista</strong> — słoneczny plener z głębokim cieniem potrafi mieć zakres jasności rzędu 100&nbsp;000:1 i więcej (ok. 17 stopów) między najciemniejszym a najjaśniejszym punktem.</li>
       <li><strong>Oko, w jednej chwili</strong> — bez poruszania źrenicą i bez czasu na photochemiczną adaptację, jednoczesny zakres to rzędu 10&nbsp;000:1 (ok. 13–14 stopów) — imponujące, ale wciąż mniej niż potrafi zaoferować sceneria z poprzedniego punktu.</li>
@@ -103,7 +103,7 @@
     <p>Ten rozdział nie pokazał jeszcze ani jednego node'a, ale ustawił trzy założenia, do których będzie wracać każdy kolejny rozdział:</p>
     <ul class="compact">
       <li>Skoro percepcja jest w przybliżeniu logarytmiczna, a matematyka światła (Lambert, GGX — raytracing-book, Rozdziały 5, 10–11) jest ściśle liniowa, między jednym a drugim musi istnieć jawne przejście. Rozdział 3 pokazuje dokładnie, co się psuje, kiedy tego przejścia zabraknie.</li>
-      <li>Skoro ekran obejmuje wyraźnie mniej niż oko, materiał oceniany na niekalibrowanym monitorze w niekontrolowanym oświetleniu pokoju to materiał oceniany na zgadywanie — stąd praktyka kalibrowanych środowisk przeglądowych (Dodatek I) i standaryzowanych rigów HDRI (Rozdział 21) zamiast „jak wygląda u mnie na ekranie".</li>
+      <li>Skoro ekran obejmuje wyraźnie mniej niż oko, materiał oceniany na niekalibrowanym monitorze w niekontrolowanym oświetleniu pokoju to materiał oceniany na zgadywanie — stąd praktyka kalibrowanych środowisk przeglądowych (Dodatek I) i standaryzowanych rigów HDRI (Rozdział 21) zamiast „jak wygląda u mnie na ekranie”.</li>
       <li>Skoro wrażliwość oka zależy od jasności bazowej, ten sam grading (Część III) może wyglądać dobrze w cieniach i źle w światłach tego samego kadru — dlatego operatory takie jak kontrast czy printer lights (Rozdział 9) operują względem punktu odniesienia (pivot), nie jednym mnożnikiem na cały obraz.</li>
     </ul>
   </div>

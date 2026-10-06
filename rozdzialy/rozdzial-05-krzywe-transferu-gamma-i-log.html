@@ -30,7 +30,7 @@
   <div class="panel">
     <div class="panel-label">TL;DR</div>
     <ul>
-      <li>„Gamma 2,2" to wygodne uproszczenie. Prawdziwe sRGB to funkcja <em>kawałkami</em>: krótki liniowy odcinek blisko czerni plus przesunięta potęga 1/2,4 — nie goła potęga 1/2,2.</li>
+      <li>„Gamma 2,2” to wygodne uproszczenie. Prawdziwe sRGB to funkcja <em>kawałkami</em>: krótki liniowy odcinek blisko czerni plus przesunięta potęga 1/2,4 — nie goła potęga 1/2,2.</li>
       <li><span class="term-cyan">Log encodingi</span> (ACEScct, ARRI LogC, Sony S-Log3, historyczny Cineon) rozwiązują inny problem niż gamma: równomiernie rozkładają precyzję na kilkanaście stopów, jakie przechwytuje matryca kamery — tam, gdzie gamma, zaprojektowana pod ~8–10 stopów ekranu, zaczyna jej brakować.</li>
       <li>Każdy log encoding ma też własny krótki liniowy odcinek blisko czerni — z dokładnie tego samego powodu co sRGB: czysty logarytm eksploduje do minus nieskończoności przy zerze, więc coś musi przejąć tę okolicę.</li>
     </ul>
@@ -64,7 +64,7 @@
     <div class="section-eyebrow">Etap: Po co log</div>
     <h2>Gamma zawodzi tam, gdzie zaczyna się materiał z kamery</h2>
     <p>Ekran SDR ma zakres rzędu 7–10 stopów (Rozdział 2) — i krzywa gamma jest dobrana pod dokładnie taki zakres: rozkłada dostępne kody (8 czy 10 bitów) tak, żeby wystarczyło ich na cienie i światła w tych granicach, bez widocznego bandingu. Nowoczesna matryca kamery filmowej rejestruje jednak 12–16 stopów i więcej. Gdyby zapisać taki materiał wprost krzywą gamma zaprojektowaną pod ekran, coś musi ucierpieć: albo górne stopy się przepalą (zabraknie kodów, żeby je odróżnić od bieli), albo cienie stracą precyzję, bo gamma i tak większość dostępnych kodów kieruje w stronę czerni, zostawiając mało miejsca dla rozciągniętego w górę zakresu jasnych partii.</p>
-    <p><span class="term-amber">Log encoding</span> rozwiązuje to inaczej niż gamma: zamiast krzywej potęgowej używa logarytmu, którego kluczowa własność to stały krok kodu na każdy <em>stop</em> (podwojenie jasności), niezależnie od tego, czy ten stop leży blisko czerni czy blisko granicy zakresu matrycy. Gamma tej własności nie ma — jej „gęstość kodów na stop" zmienia się wzdłuż krzywej. To dlatego materiał z kamery filmowej bywa nagrywany w formie „płaskiej", mało kontrastowej — log nie jest formatem do oglądania, tylko gęstym, równomiernym zapisem surowego zakresu, przeznaczonym do gradingu (Część III) już po zdjęciach.</p>
+    <p><span class="term-amber">Log encoding</span> rozwiązuje to inaczej niż gamma: zamiast krzywej potęgowej używa logarytmu, którego kluczowa własność to stały krok kodu na każdy <em>stop</em> (podwojenie jasności), niezależnie od tego, czy ten stop leży blisko czerni czy blisko granicy zakresu matrycy. Gamma tej własności nie ma — jej „gęstość kodów na stop” zmienia się wzdłuż krzywej. To dlatego materiał z kamery filmowej bywa nagrywany w formie „płaskiej”, mało kontrastowej — log nie jest formatem do oglądania, tylko gęstym, równomiernym zapisem surowego zakresu, przeznaczonym do gradingu (Część III) już po zdjęciach.</p>
   </div>
 
   <div class="section">
@@ -108,7 +108,7 @@
         <circle cx="560" cy="240" r="5" fill="#e8a33d"/><text x="572" y="244" fill="#e8a33d">log — kod równy na każdy stop</text>
       </g>
     </svg>
-    <div class="diagram-caption">Gamma i log obie „unoszą" ciemne wartości wyżej niż linia prosta — ale log robi to z myślą o równych krokach na stop w szerokim zakresie, gamma z myślą o zakresie ekranu.</div>
+    <div class="diagram-caption">Gamma i log obie „unoszą” ciemne wartości wyżej niż linia prosta — ale log robi to z myślą o równych krokach na stop w szerokim zakresie, gamma z myślą o zakresie ekranu.</div>
   </div>
   </div>
 
@@ -124,7 +124,7 @@
       <dt>Middle grey (18% szarości)</dt>
       <dd>Umowny punkt odniesienia ekspozycji fotograficznej, w przybliżeniu środek subiektywnego zakresu tonalnego — realizowany w ACEScct jako kod ≈ 0,414.</dd>
       <dt>Code value</dt>
-      <dd>Konkretna liczba zapisana w pliku lub buforze — odróżniana celowo od „jasności", bo związek między nimi zależy od krzywej transferu.</dd>
+      <dd>Konkretna liczba zapisana w pliku lub buforze — odróżniana celowo od „jasności”, bo związek między nimi zależy od krzywej transferu.</dd>
     </dl>
   </div>
 
